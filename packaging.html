@@ -88,6 +88,7 @@
 </header>
 
 <div class="panel controls">
+  <label>Item<input type="text" id="itemPick" list="itemList" placeholder="Choose or type an item…" autocomplete="off" style="min-width:280px"><datalist id="itemList"></datalist></label>
   <label class="listonly">Search<input type="search" id="q" placeholder="code or material"></label>
   <label class="listonly">Warehouse
     <select id="plant"></select>
@@ -332,7 +333,7 @@ function itemView(code){
   const tot=k=>model.reduce((a,m)=>a+m[k],0);
   const tcons=tot('cons'), tstock=tot('stock'), tpend=tot('pend');
   let h=`<div class="panel"><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><button class="back" id="back">← All materials</button>
-    <label style="display:flex;flex-direction:column;font-size:11.5px;color:var(--muted);gap:3px">Item<select id="itemSel" style="min-width:260px;max-width:100%">${G().items.map(x=>`<option value="${esc(x.code)}"${x.code===code?' selected':''}>${esc(x.name)} (${esc(x.code)})</option>`).join('')}</select></label>
+    
     <div><h2 style="font-size:17px;margin:0">${esc(it.name)} <span class="note">${esc(it.code)}</span></h2><div class="note">${G().label} · ${u==='t'?'tonnes':'pieces'} · as of ${fmtDate(ASOF)}</div></div></div></div>`;
   // summary by warehouse
   h+=`<div class="panel"><h2>Position by warehouse</h2><div class="scroll"><table><thead><tr><th class="l">Warehouse</th><th>Consumption (${u}/mo)</th><th>Stock (${u})</th><th>Pending (${u})</th><th>Avg pending price</th><th>DIO whse (d)</th><th>DIO + pending (d)</th><th>Cover situation</th></tr></thead><tbody>`+
@@ -357,7 +358,6 @@ function itemView(code){
   });
   h+=`<p class="note">End of month = previous month end + deliveries − predicted consumption (a full month is charged each month, as in the cover report). The pending sheet has no ETAs, so deliveries are placed using the Delivery timing control; PBAs past their end date are placed in the current month. Negative values are shortfall.</p>`;
   $('itemView').innerHTML=h; $('back').onclick=()=>{ location.hash=''; };
-  $('itemSel').onchange=e=>{ location.hash='item='+encodeURIComponent(e.target.value); };
   return true;
 }
 function plantOfWh(w){ if(/-(IT|QA)$/.test(w)) return null;
@@ -378,11 +378,21 @@ function projChart(model,ML,u){
        m.eom.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="2.5" fill="${c}"><title>${m.p} ${ML[i]}: ${fmt(v,0)} ${u}</title></circle>`).join(''); });
   return s+'</svg><div class="note">Dashed line = zero stock.</div>';
 }
+const itemLabel = x => x.name+' ('+x.code+')';
+$('itemList').innerHTML = G().items.map(x=>`<option value="${esc(itemLabel(x))}"></option>`).join('');
+$('itemPick').addEventListener('input',e=>{
+  const v=e.target.value.trim();
+  const hit=G().items.find(x=>itemLabel(x).toLowerCase()===v.toLowerCase());
+  if(hit) location.hash='item='+encodeURIComponent(hit.code);
+  else if(v==='' && location.hash) location.hash='';
+});
 function route(){
   const m=/^#item=(.+)$/.exec(location.hash);
   const code=m?decodeURIComponent(m[1]):null;
   const ok = code && G().items.some(x=>x.code===code);
   document.body.classList.toggle('item-mode',!!ok);
+  const cur=ok?G().items.find(x=>x.code===code):null;
+  if(document.activeElement!==$('itemPick') || ok) $('itemPick').value=cur?itemLabel(cur):'';
   $('listView').hidden=!!ok; $('itemView').hidden=!ok;
   if(ok){ itemView(code); window.scrollTo(0,0); } else render();
 }
