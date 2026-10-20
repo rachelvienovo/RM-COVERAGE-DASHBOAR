@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Packaging Coverage Dashboard</title>
+<style>
+  :root{
+    --bg:#eef2ef;--panel:#ffffff;--ink:#14221c;--muted:#5a6a63;--line:#d6dfda;--line-strong:#9fb2a9;
+    --accent:#1d6a4c;--accent-soft:#e3f0ea;
+    --crit:#b42318;--crit-soft:#fdecea;--warn:#a86f12;--warn-soft:#fbf1dc;--ok:#167a4a;--ok-soft:#e2f4ea;--na:#6b7a73;--na-soft:#edf1ee;
+    --bar-a:#1d6a4c;--bar-b:#8fc4ab;
+    --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+    --bg:#0e1512;--panel:#16201c;--ink:#e4ece8;--muted:#94a59d;--line:#26342e;--line-strong:#4a5f56;
+    --accent:#4cbc8b;--accent-soft:#16302a;
+    --crit:#f07b70;--crit-soft:#341a18;--warn:#e3b25e;--warn-soft:#2c2414;--ok:#55c98f;--ok-soft:#14301f;--na:#94a59d;--na-soft:#1c2823;
+    --bar-a:#4cbc8b;--bar-b:#2b5a47;color-scheme:dark}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font)}
+  .wrap{max-width:1280px;margin:0 auto;padding:16px}
+  h1{font-size:20px;margin:0}
+  .sub{color:var(--muted);font-size:12.5px;margin-top:2px}
+  header{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:flex-end;margin-bottom:14px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+  .controls{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:end}
+  .controls label{display:flex;flex-direction:column;font-size:11.5px;color:var(--muted);gap:3px}
+  input,select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line-strong);border-radius:6px;padding:5px 8px;min-height:32px}
+  input[type=number]{width:84px}
+  input[type=search]{width:190px}
+  .chk{flex-direction:row!important;align-items:center;gap:6px!important;color:var(--ink)!important;font-size:13px!important}
+  .chk input{min-height:0}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);border-radius:999px;padding:4px 11px;cursor:pointer;font:inherit;font-size:12.5px}
+  .chip[aria-pressed=true]{background:var(--accent);color:#fff;border-color:var(--accent)}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .chip[aria-pressed=true]{color:#06130d}}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .kpi .l{font-size:11.5px;color:var(--muted)}
+  .kpi .v{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums}
+  .kpi .s{font-size:11.5px;color:var(--muted)}
+  .kpi.crit .v{color:var(--crit)}.kpi.warn .v{color:var(--warn)}
+  .grid2{display:grid;grid-template-columns:1fr;gap:12px}
+  h2{font-size:14px;margin:0 0 8px}
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-bottom:6px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  .scroll{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:8px}
+  table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:13px}
+  th,td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  th{position:sticky;top:0;background:var(--panel);cursor:pointer;font-size:11.5px;color:var(--muted);z-index:1;user-select:none;border-bottom:1px solid var(--line-strong)}
+  th.l,td.l{text-align:left}
+  th .ar{opacity:.5}
+  tr.main{cursor:pointer}
+  tr.main:hover td{background:var(--accent-soft)}
+  td.name{white-space:normal;min-width:170px}
+  .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600}
+  .p-crit{background:var(--crit-soft);color:var(--crit)}.p-warn{background:var(--warn-soft);color:var(--warn)}
+  .p-ok{background:var(--ok-soft);color:var(--ok)}.p-na{background:var(--na-soft);color:var(--na)}
+  .c-crit{background:var(--crit-soft);color:var(--crit);font-weight:600}.c-warn{background:var(--warn-soft);color:var(--warn);font-weight:600}.c-ok{color:var(--ok)}
+  tr.detail td{background:var(--bg);padding:10px 14px;white-space:normal}
+  .dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+  .mini th{position:static;cursor:default}
+  .note{font-size:12px;color:var(--muted)}
+  .notes li{margin-bottom:3px}
+  svg text{fill:var(--ink);font-family:var(--font)}
+  .empty{padding:20px;color:var(--muted);text-align:center}
+  @media (min-width:900px){.grid2{grid-template-columns:5fr 4fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>Packaging Coverage Dashboard</h1>
+    <div class="sub" id="asof"></div>
+  </div>
+  <div class="sub" id="unitnote"></div>
+  <nav class="sub"><a href="index.html" style="color:var(--accent)">Macro coverage</a> · <b>Packaging coverage</b></nav>
+</header>
+
+<div class="panel controls">
+  <label>Search<input type="search" id="q" placeholder="code or material"></label>
+  <label>Plant
+    <select id="plant"></select>
+  </label>
+  <label>Critical below (days)<input type="number" id="tCrit" value="30" min="1"></label>
+  <label>Watch below (days)<input type="number" id="tWarn" value="60" min="1"></label>
+  <label>Target cover (months)<input type="number" id="tTarget" value="3" min="0.5" step="0.5"></label>
+  <label class="chk"><input type="checkbox" id="exExp"> Exclude expired PBAs</label>
+  <div class="chips" id="status" role="group" aria-label="Status filter"></div>
+</div>
+
+<div class="kpis" id="kpis"></div>
+
+<div class="grid2">
+  <div class="panel">
+    <h2>Days of cover — lowest first</h2>
+    <div class="legend"><span><i style="background:var(--bar-a)"></i>Warehouse stock</span><span><i style="background:var(--bar-b)"></i>+ pending PBA/PO</span><span id="capNote"></span></div>
+    <div id="chart"></div>
+  </div>
+  <div class="panel">
+    <h2>Where the gaps are</h2>
+    <div id="gaps" class="note"></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2><span id="title2">Position</span> <span class="note" id="rowcount"></span></h2>
+  <div class="scroll"><table id="tbl"></table></div>
+  <p class="note">Click a row for the per-plant breakdown and open PBA/PO lines.</p>
+</div>
+
+<div class="panel">
+  <h2>Basis and caveats</h2>
+  <ul class="note notes">
+    <li><b>Stock</b>: RM_WH_Mgt › INV (on-hand at last sync; PACKAGING class, in pieces). Includes plant, -PD (production) and EXT/ALAE warehouses; excludes -IT and -QA locations.</li>
+    <li><b>Consumption</b>: RM_WH_Mgt › Plant Consumption Breakdown, average monthly usage per plant. Horeb + Argao are combined as CEBU; ISABELA is shown as PFMC.</li>
+    <li><b>Pending</b>: SBO Purchase Blanket Agreement › OPEN PBA + PO, balance quantity per warehouse. This is the unreceived balance of PBAs plus POs; no ETA is available, so pending is treated as arriving in full. PBAs past their end date are flagged and can be excluded.</li>
+    <li><b>Shortfall to target</b> = target months × monthly consumption − stock − pending (already-ordered quantity is netted out). Targets and thresholds above are editable; the defaults are placeholders, not company policy.</li>
+    <li><b>Packaging</b>: class PACKAGING; quantities are pieces. Warehouse BAC (Visayas) is counted under CEBU. Pending lines with a zero or negative balance (over-received) are ignored.</li>
+    <li>Regional days of cover treat each plant separately; stock is not transferred between plants in this model.</li>
+  </ul>
+</div>
+</div>
+
+<script>
+const DATA = {"asof":"2026-10-20","plants":["AC","PFMC","BUKID","DAVAO","CEBU","CCPC"],"groups":{"PACKAGING":{"label":"Packaging","unit":"pcs","dec":0,"stockDec":0,"items":[{"code":"PK000003","name":"PCK BROILER BOOSTER 50KG","cons":{"AC":1045.995,"PFMC":0.0,"BUKID":2636.111,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":4709.0,"PFMC":0.0,"BUKID":17229.0,"DAVAO":0.0,"CEBU":5907.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000005","name":"PCK BROILER FINISHER 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":9150.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000006","name":"PCK BROILER FINISHER OLD","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":2000.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000007","name":"PCK BROILER GROWER 50KG","cons":{"AC":16800.984,"PFMC":0.0,"BUKID":1419.444,"DAVAO":0.0,"CEBU":608.333,"CCPC":0.0},"stock":{"AC":31817.0,"PFMC":849.0,"BUKID":10120.0,"DAVAO":0.0,"CEBU":1344.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000008","name":"PCK BROILER STARTER 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":304.167,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":43804.0,"PFMC":588.0,"BUKID":33657.0,"DAVAO":0.0,"CEBU":49159.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000011","name":"PCK Keos Dog Adult B&V - 20KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":9.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000013","name":"PCK Keos Dog Puppy MC&E - Bag 20 kg","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":26.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000014","name":"PCK LAYER 1 50KG","cons":{"AC":6167.824,"PFMC":3924.595,"BUKID":10564.722,"DAVAO":3629.722,"CEBU":6276.986,"CCPC":0.0},"stock":{"AC":12565.0,"PFMC":6182.0,"BUKID":43020.0,"DAVAO":7100.0,"CEBU":74146.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000015","name":"PCK LAYER 2 50KG","cons":{"AC":689.444,"PFMC":0.0,"BUKID":5358.403,"DAVAO":1520.833,"CEBU":3009.56,"CCPC":0.0},"stock":{"AC":2689.0,"PFMC":2918.0,"BUKID":11500.0,"DAVAO":1110.0,"CEBU":9741.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":15000.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":1908,"vendor":"TRUNG DONG CORPORATION","wh":"ALAE","plant":"BUKID","created":"2026-09-02","end":"2026-10-30","t":15000.0,"price":0.316,"expired":false}]},{"code":"PK000017","name":"PCK LINER 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":2971.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000018","name":"PCK LINER 50 KG","cons":{"AC":4461.111,"PFMC":1153.299,"BUKID":0.0,"DAVAO":0.0,"CEBU":3041.667,"CCPC":0.0},"stock":{"AC":4649.0,"PFMC":3544.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":4400.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000020","name":"PCK Novopet-20 kg","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":6.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000021","name":"PCK OLD VARIOUS","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":3900.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000023","name":"PCK POWERBOOST CHICK BOOSTER CRUMBLE 1KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":44199.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":155530.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000024","name":"PCK POWERBOOST CHICK BOOSTER CRUMBLE 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":1216.667,"CCPC":0.0},"stock":{"AC":2100.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":7574.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000025","name":"PCK POWERBOOST READY MIX 1KG","cons":{"AC":1520.833,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":5069.444,"CCPC":0.0},"stock":{"AC":45250.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":156105.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000026","name":"PCK POWERBOOST READY MIX 25KG","cons":{"AC":634.525,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":2935.208,"CCPC":0.0},"stock":{"AC":3601.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":70022.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000027","name":"PCK POWERBOOST STAG DEVELOPER CRUMBLE 1KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":14169.097,"CCPC":0.0},"stock":{"AC":43650.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":152054.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000028","name":"PCK POWERBOOST STAG DEVELOPER CRUMBLE 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":2100.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":7851.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000029","name":"PCK POWERBOOST STAG DEVELOPER PELLET 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":1013.889,"CCPC":0.0},"stock":{"AC":2100.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":7629.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000030","name":"PCK PULLET BOOSTER 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":5610.0,"PFMC":0.0,"BUKID":1590.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000031","name":"PCK PULLET DEVELOPER 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":4610.0,"PFMC":0.0,"BUKID":9211.0,"DAVAO":0.0,"CEBU":4331.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000032","name":"PCK PULLET GROWER 1 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":811.111,"DAVAO":0.0,"CEBU":405.556,"CCPC":0.0},"stock":{"AC":14444.0,"PFMC":0.0,"BUKID":10029.0,"DAVAO":1180.0,"CEBU":8460.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000034","name":"PCK PULLET STARTER 50KG","cons":{"AC":1013.889,"PFMC":0.0,"BUKID":811.111,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":8732.0,"PFMC":0.0,"BUKID":6640.0,"DAVAO":0.0,"CEBU":4378.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000062","name":"PCK SUREGROW GROWER 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":4000.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000068","name":"PCK TONNER BAG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":160.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000069","name":"PCK TRANSPARENT POWERBOOST 25KG","cons":{"AC":60.833,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":594.815,"CCPC":0.0},"stock":{"AC":19531.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":12775.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000070","name":"PCK VIEPRO 1000 PROBOOST 50KG","cons":{"AC":1191.319,"PFMC":466.389,"BUKID":2027.778,"DAVAO":0.0,"CEBU":1013.889,"CCPC":0.0},"stock":{"AC":8931.0,"PFMC":2325.0,"BUKID":23960.0,"DAVAO":800.0,"CEBU":11841.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000071","name":"PCK VIEPRO 2000 PROBOOST 50KG","cons":{"AC":2438.403,"PFMC":537.361,"BUKID":6767.708,"DAVAO":3035.33,"CEBU":3548.611,"CCPC":0.0},"stock":{"AC":64294.0,"PFMC":2832.0,"BUKID":21200.0,"DAVAO":5272.0,"CEBU":38169.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000072","name":"PCK VIEPRO 3000 PROBOOST 50KG","cons":{"AC":2370.81,"PFMC":506.944,"BUKID":6759.259,"DAVAO":3447.222,"CEBU":5272.222,"CCPC":0.0},"stock":{"AC":4928.0,"PFMC":1136.0,"BUKID":20830.0,"DAVAO":7299.0,"CEBU":18485.0,"CCPC":0.0},"pend":{"AC":10000.0,"PFMC":0.0,"BUKID":23000.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":1907,"vendor":"VINH PLASTIC AND BAGS JOINT STOCK COMPANY","wh":"ALAE","plant":"BUKID","created":"2026-09-02","end":"2026-10-30","t":15000.0,"price":0.445,"expired":false},{"pba":2103,"vendor":"VINH PLASTIC AND BAGS JOINT STOCK COMPANY","wh":"AC","plant":"AC","created":"2026-09-29","end":"2026-11-15","t":10000.0,"price":0.445,"expired":false},{"pba":2102,"vendor":"VINH PLASTIC AND BAGS JOINT STOCK COMPANY","wh":"ALAE","plant":"BUKID","created":"2026-09-29","end":"2026-11-15","t":8000.0,"price":0.445,"expired":false}]},{"code":"PK000073","name":"PCK VIEPRO 4000 PROBOOST 25KG","cons":{"AC":1003.75,"PFMC":0.0,"BUKID":2027.778,"DAVAO":0.0,"CEBU":1676.296,"CCPC":0.0},"stock":{"AC":2119.0,"PFMC":0.0,"BUKID":7826.0,"DAVAO":0.0,"CEBU":7505.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000076","name":"PCK VIEPRO BOOSTER FEEDS 25KG","cons":{"AC":1554.63,"PFMC":0.0,"BUKID":1419.444,"DAVAO":0.0,"CEBU":1387.76,"CCPC":0.0},"stock":{"AC":3390.0,"PFMC":2226.0,"BUKID":8204.0,"DAVAO":0.0,"CEBU":7527.0,"CCPC":1040.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":5000.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":1907,"vendor":"VINH PLASTIC AND BAGS JOINT STOCK COMPANY","wh":"ALAE","plant":"BUKID","created":"2026-09-02","end":"2026-10-30","t":5000.0,"price":0.321,"expired":false}]},{"code":"PK000079","name":"PCK VIEPRO DUCK LAYER 50KG","cons":{"AC":1117.812,"PFMC":1153.299,"BUKID":1013.889,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":4606.0,"PFMC":2533.0,"BUKID":5412.0,"DAVAO":0.0,"CEBU":103.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000089","name":"PCK VIEPRO PDP 50KG","cons":{"AC":8637.488,"PFMC":441.042,"BUKID":12112.593,"DAVAO":2331.944,"CEBU":9606.597,"CCPC":0.0},"stock":{"AC":11533.0,"PFMC":1055.0,"BUKID":11340.0,"DAVAO":5621.0,"CEBU":32341.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":15000.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":1908,"vendor":"TRUNG DONG CORPORATION","wh":"ALAE","plant":"BUKID","created":"2026-09-02","end":"2026-10-30","t":15000.0,"price":0.316,"expired":false}]},{"code":"PK000090","name":"PCK VIEPRO PIGLET PRESTARTER 25KG","cons":{"AC":23145.056,"PFMC":1377.199,"BUKID":7181.713,"DAVAO":0.0,"CEBU":6415.889,"CCPC":0.0},"stock":{"AC":90638.0,"PFMC":4864.0,"BUKID":73810.0,"DAVAO":500.0,"CEBU":17648.0,"CCPC":150.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000092","name":"PCK VIEPRO PREMIUM FINISHER 50KG","cons":{"AC":1855.417,"PFMC":458.785,"BUKID":4853.993,"DAVAO":2027.778,"CEBU":8675.087,"CCPC":0.0},"stock":{"AC":4832.0,"PFMC":1324.0,"BUKID":9600.0,"DAVAO":5801.0,"CEBU":31346.0,"CCPC":0.0},"pend":{"AC":8000.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":2103,"vendor":"VINH PLASTIC AND BAGS JOINT STOCK COMPANY","wh":"AC","plant":"AC","created":"2026-09-29","end":"2026-11-15","t":8000.0,"price":0.445,"expired":false}]},{"code":"PK000093","name":"PCK VIEPRO PREMIUM GESTATING 50KG","cons":{"AC":610.868,"PFMC":0.0,"BUKID":2365.741,"DAVAO":0.0,"CEBU":1266.094,"CCPC":0.0},"stock":{"AC":6283.0,"PFMC":0.0,"BUKID":11600.0,"DAVAO":235.0,"CEBU":11940.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000094","name":"PCK VIEPRO PREMIUM GROWER 50KG","cons":{"AC":13438.252,"PFMC":7224.972,"BUKID":30923.611,"DAVAO":11882.778,"CEBU":34980.856,"CCPC":0.0},"stock":{"AC":49370.0,"PFMC":11507.0,"BUKID":68030.0,"DAVAO":12871.0,"CEBU":137262.0,"CCPC":0.0},"pend":{"AC":25000.0,"PFMC":0.0,"BUKID":60000.0,"DAVAO":0.0,"CEBU":10000.0,"CCPC":0.0},"pos":[{"pba":2102,"vendor":"VINH PLASTIC AND BAGS JOINT STOCK COMPANY","wh":"ALAE","plant":"BUKID","created":"2026-09-29","end":"2026-11-15","t":60000.0,"price":0.445,"expired":false},{"pba":2103,"vendor":"VINH PLASTIC AND BAGS JOINT STOCK COMPANY","wh":"AC","plant":"AC","created":"2026-09-29","end":"2026-11-15","t":25000.0,"price":0.445,"expired":false},{"pba":1707,"vendor":"VINH PLASTIC AND BAGS JOINT STOCK COMPANY","wh":"HOREB","plant":"CEBU","created":"2026-08-07","end":"2026-09-30","t":10000.0,"price":0.0,"expired":true}]},{"code":"PK000095","name":"PCK VIEPRO PREMIUM LACTATING 50KG","cons":{"AC":1427.894,"PFMC":681.84,"BUKID":3802.083,"DAVAO":0.0,"CEBU":3890.799,"CCPC":0.0},"stock":{"AC":4159.0,"PFMC":1639.0,"BUKID":22030.0,"DAVAO":2300.0,"CEBU":19003.0,"CCPC":0.0},"pend":{"AC":7000.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":2103,"vendor":"VINH PLASTIC AND BAGS JOINT STOCK COMPANY","wh":"AC","plant":"AC","created":"2026-09-29","end":"2026-11-15","t":7000.0,"price":0.445,"expired":false}]},{"code":"PK000096","name":"PCK VIEPRO PREMIUM STARTER 50KG","cons":{"AC":6798.125,"PFMC":3697.315,"BUKID":11997.685,"DAVAO":10840.162,"CEBU":26584.167,"CCPC":0.0},"stock":{"AC":19173.0,"PFMC":8299.0,"BUKID":56340.0,"DAVAO":9902.0,"CEBU":103147.0,"CCPC":0.0},"pend":{"AC":15000.0,"PFMC":0.0,"BUKID":50000.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":1907,"vendor":"VINH PLASTIC AND BAGS JOINT STOCK COMPANY","wh":"ALAE","plant":"BUKID","created":"2026-09-02","end":"2026-10-30","t":50000.0,"price":0.445,"expired":false},{"pba":2103,"vendor":"VINH PLASTIC AND BAGS JOINT STOCK COMPANY","wh":"AC","plant":"AC","created":"2026-09-29","end":"2026-11-15","t":15000.0,"price":0.445,"expired":false}]},{"code":"PK000098","name":"PCK VIEPRO PRIME FINISHER 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":2004.0,"PFMC":602.0,"BUKID":2292.0,"DAVAO":0.0,"CEBU":1700.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000099","name":"PCK VIEPRO PRIME GESTATING 50KG","cons":{"AC":6769.398,"PFMC":1375.087,"BUKID":20345.37,"DAVAO":8111.111,"CEBU":22461.019,"CCPC":0.0},"stock":{"AC":30748.0,"PFMC":2941.0,"BUKID":47815.0,"DAVAO":9024.0,"CEBU":105521.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":20000.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":2104,"vendor":"TRUNG DONG CORPORATION","wh":"ALAE","plant":"BUKID","created":"2026-09-29","end":"2026-11-15","t":20000.0,"price":0.335,"expired":false}]},{"code":"PK000100","name":"PCK VIEPRO PRIME GROWER 50KG","cons":{"AC":2538.947,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":1794.0,"PFMC":1912.0,"BUKID":2728.0,"DAVAO":0.0,"CEBU":2465.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000101","name":"PCK VIEPRO PRIME LACTATING 50KG","cons":{"AC":1334.954,"PFMC":1007.13,"BUKID":4055.556,"DAVAO":1024.028,"CEBU":4180.602,"CCPC":0.0},"stock":{"AC":6834.0,"PFMC":1759.0,"BUKID":13500.0,"DAVAO":3225.0,"CEBU":21275.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000102","name":"PCK VIEPRO PRIME STARTER 50KG","cons":{"AC":1361.991,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":1866.0,"PFMC":0.0,"BUKID":3277.0,"DAVAO":0.0,"CEBU":2297.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":5000.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":2104,"vendor":"TRUNG DONG CORPORATION","wh":"ALAE","plant":"BUKID","created":"2026-09-29","end":"2026-11-15","t":5000.0,"price":0.335,"expired":false}]},{"code":"PK000103","name":"PCK VIEPRO PROBOOST 16G 25KG","cons":{"AC":620.5,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":1077.764,"CCPC":0.0},"stock":{"AC":5411.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":32534.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000104","name":"PCK VIEPRO PROBOOST 18G 25KG","cons":{"AC":588.056,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":2279.983,"CCPC":0.0},"stock":{"AC":6131.0,"PFMC":5.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":25304.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000105","name":"PCK VIEPRO PROBOOST 7G 25KG","cons":{"AC":1458.31,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":2887.894,"CCPC":0.0},"stock":{"AC":9679.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":30800.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000106","name":"PCK VIEPRO QUAIL LAYER 50KG","cons":{"AC":5435.289,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":8975.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":7000.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":1908,"vendor":"TRUNG DONG CORPORATION","wh":"ALAE","plant":"BUKID","created":"2026-09-02","end":"2026-10-30","t":7000.0,"price":0.316,"expired":false}]},{"code":"PK000109","name":"PCK VIEPRO SUPERFORMULA 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":811.111,"CCPC":0.0},"stock":{"AC":7285.0,"PFMC":0.0,"BUKID":260.0,"DAVAO":0.0,"CEBU":6345.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000110","name":"PCK VIEPRO VANA 1 25KG","cons":{"AC":32.951,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":1790.0,"PFMC":0.0,"BUKID":3000.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000116","name":"PCK VIEPROMO FINISHER 50KG","cons":{"AC":405.556,"PFMC":0.0,"BUKID":1013.889,"DAVAO":2027.778,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":2604.0,"PFMC":0.0,"BUKID":3897.0,"DAVAO":1575.0,"CEBU":5871.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":15000.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":2104,"vendor":"TRUNG DONG CORPORATION","wh":"ALAE","plant":"BUKID","created":"2026-09-29","end":"2026-11-15","t":10000.0,"price":0.335,"expired":false},{"pba":1908,"vendor":"TRUNG DONG CORPORATION","wh":"ALAE","plant":"BUKID","created":"2026-09-02","end":"2026-10-30","t":5000.0,"price":0.316,"expired":false}]},{"code":"PK000117","name":"PCK VIEPROMO GESTATING 50KG","cons":{"AC":6683.218,"PFMC":1890.903,"BUKID":3041.667,"DAVAO":1013.889,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":8648.0,"PFMC":3419.0,"BUKID":13533.0,"DAVAO":2605.0,"CEBU":30352.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000118","name":"PCK VIEPROMO GROWER 50KG","cons":{"AC":405.556,"PFMC":0.0,"BUKID":5779.353,"DAVAO":4613.194,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":4804.0,"PFMC":200.0,"BUKID":7889.78,"DAVAO":4432.0,"CEBU":2438.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":33000.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":2104,"vendor":"TRUNG DONG CORPORATION","wh":"ALAE","plant":"BUKID","created":"2026-09-29","end":"2026-11-15","t":25000.0,"price":0.335,"expired":false},{"pba":1908,"vendor":"TRUNG DONG CORPORATION","wh":"ALAE","plant":"BUKID","created":"2026-09-02","end":"2026-10-30","t":8000.0,"price":0.316,"expired":false}]},{"code":"PK000119","name":"PCK VIEPROMO LACTATING 50KG","cons":{"AC":608.333,"PFMC":0.0,"BUKID":1447.326,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":6233.0,"PFMC":0.0,"BUKID":2266.0,"DAVAO":3500.0,"CEBU":1416.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":8000.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":2104,"vendor":"TRUNG DONG CORPORATION","wh":"ALAE","plant":"BUKID","created":"2026-09-29","end":"2026-11-15","t":8000.0,"price":0.335,"expired":false}]},{"code":"PK000120","name":"PCK VIEPROMO STARTER 50KG","cons":{"AC":709.722,"PFMC":0.0,"BUKID":3041.667,"DAVAO":2027.778,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":5982.0,"PFMC":0.0,"BUKID":8975.0,"DAVAO":2315.0,"CEBU":4804.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":8000.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":1908,"vendor":"TRUNG DONG CORPORATION","wh":"ALAE","plant":"BUKID","created":"2026-09-02","end":"2026-10-30","t":8000.0,"price":0.316,"expired":false}]},{"code":"PK000121","name":"PCK VIETOP 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":760.417,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":1140.0,"PFMC":280.0,"BUKID":1171.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":5000.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":2137,"vendor":"JAPAN PAPER TECHNOLOGY (VN) CO.,LTD","wh":"ACEXT","plant":"AC","created":"2026-10-02","end":"2026-11-30","t":5000.0,"price":0.963,"expired":false}]},{"code":"PK000122","name":"PCK WHITE SACK WITH LINER 25KG","cons":{"AC":5494.422,"PFMC":1437.694,"BUKID":3092.361,"DAVAO":0.0,"CEBU":5151.4,"CCPC":0.0},"stock":{"AC":14000.0,"PFMC":2699.0,"BUKID":8617.0,"DAVAO":0.0,"CEBU":17384.0,"CCPC":500.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000123","name":"PCK WHITE SACK WITH LINER 50KG","cons":{"AC":23977.627,"PFMC":4188.375,"BUKID":12535.046,"DAVAO":9946.25,"CEBU":22762.65,"CCPC":0.0},"stock":{"AC":12507.0,"PFMC":623.0,"BUKID":11780.0,"DAVAO":1800.0,"CEBU":47234.0,"CCPC":1500.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000125","name":"PCK WHITE SACK WITHOUT LINER 50KG","cons":{"AC":9850.775,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":2788.194,"CCPC":0.0},"stock":{"AC":12357.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":7500.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000126","name":"PCK POWERBOOST STAG DEVELOPER PELLET 1KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":24586.806,"CCPC":0.0},"stock":{"AC":44125.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":146875.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000127","name":"PCK VIEPRO PIGLET BOOSTER PELLET 1KG","cons":{"AC":6336.806,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":12039.931,"CCPC":0.0},"stock":{"AC":28849.0,"PFMC":0.0,"BUKID":1525.0,"DAVAO":0.0,"CEBU":149050.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000128","name":"PCK TRANSPARENT PIGLET BOOSTER 25KG","cons":{"AC":252.205,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":706.343,"CCPC":0.0},"stock":{"AC":10219.0,"PFMC":0.0,"BUKID":725.0,"DAVAO":0.0,"CEBU":21876.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000002","name":"CASH SACKS","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":1050.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000022","name":"PCK PLAIN RED SACK 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":26.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000035","name":"PCK RABBIT BREEDER 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":3342.0,"PFMC":0.0,"BUKID":3100.0,"DAVAO":0.0,"CEBU":461.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000036","name":"PCK RABBIT GROWER 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":2128.0,"PFMC":0.0,"BUKID":3021.0,"DAVAO":0.0,"CEBU":666.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000074","name":"PCK VIEPRO 4000 PROBOOST 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":0.0,"PFMC":0.0,"BUKID":48.0,"DAVAO":0.0,"CEBU":100.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000091","name":"PCK VIEPRO PREMIUM CHICK GROWER CRUMBLE 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":6812.066,"CCPC":0.0},"stock":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":31085.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":17000.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[{"pba":1908,"vendor":"TRUNG DONG CORPORATION","wh":"ALAE","plant":"BUKID","created":"2026-09-02","end":"2026-10-30","t":17000.0,"price":0.316,"expired":false}]},{"code":"PK000019","name":"PCK LINKAFIX 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":5983.0,"PFMC":0.0,"BUKID":4800.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000083","name":"PCK VIEPRO FISH GROWER 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":2375.0,"PFMC":0.0,"BUKID":4574.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000085","name":"PCK VIEPRO FISH STARTER 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":23877.0,"PFMC":0.0,"BUKID":6022.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000001","name":"USED SACKS","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":0.0,"PFMC":0.0,"BUKID":1090.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000038","name":"PCK SCRS SUPREME CHICK TURBO 1000 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":0.0,"PFMC":219.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000039","name":"PCK SCRS SUPREME CHICK TURBO 2000 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":0.0,"PFMC":139.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000041","name":"PCK SCRS SUPREME CHICKEN LAYER 1 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":0.0,"PFMC":62.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000042","name":"PCK SCRS SUPREME DUCK LAYER 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":0.0,"PFMC":473.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000044","name":"PCK SCRS SUPREME HOG FINISHER 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":100.0,"PFMC":135.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000045","name":"PCK SCRS SUPREME HOG GROWER 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":0.0,"PFMC":440.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000046","name":"PCK SCRS SUPREME HOG PRE-STARTER 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":359.0,"PFMC":700.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000047","name":"PCK SCRS SUPREME HOG STARTER 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":0.0,"PFMC":276.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000048","name":"PCK SCRS SUPREME SOW GESTATING 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":0.0,"PFMC":77.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000049","name":"PCK SCRS SUPREME SOW LACTATING 50KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":0.0,"PFMC":212.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000077","name":"PCK VIEPRO BOOSTER FEEDS 25KG OLD","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":2135.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000082","name":"PCK VIEPRO FISH FINISHER 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":1000.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000084","name":"PCK VIEPRO FISH PRESTARTER 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":10414.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000097","name":"PCK VIEPRO PRESTARTER FEEDS 25KG OLD","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":458.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000111","name":"PCK VIEPRO VANA 2 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":5119.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000112","name":"PCK VIEPRO VANA 3 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":1716.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000113","name":"PCK VIEPRO VANA 4 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":375.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]},{"code":"PK000115","name":"PCK VIEPRO VANA 6 25KG","cons":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"stock":{"AC":2800.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pend":{"AC":0.0,"PFMC":0.0,"BUKID":0.0,"DAVAO":0.0,"CEBU":0.0,"CCPC":0.0},"pos":[]}]}}};
+const PL = DATA.plants;
+const GROUPS = DATA.groups;
+const ASOF = new Date(DATA.asof+'T00:00:00');
+const $ = id => document.getElementById(id);
+const fmt = (n,d=0) => n==null||!isFinite(n) ? '–' : n.toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d});
+const fmtDate = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+$('asof').textContent = 'As of '+fmtDate(ASOF)+' · stock & consumption: RM_WH_Mgt · pending: OPEN PBA + PO (Oct 19 sync)';
+
+const state = {sort:'daysW', dir:1, status:'all', open:null, group:Object.keys(GROUPS)[0]};
+const G = () => GROUPS[state.group];
+$('plant').innerHTML = '<option value="ALL">All plants</option>'+PL.map(p=>`<option>${p}</option>`).join('');
+const STAT = [['all','All'],['crit','Critical'],['warn','Watch'],['ok','OK'],['na','No usage']];
+$('status').innerHTML = STAT.map(([k,l])=>`<button class="chip" data-k="${k}" aria-pressed="${k==='all'}">${l}</button>`).join('');
+$('status').onclick = e => { const b=e.target.closest('button'); if(!b) return; state.status=b.dataset.k;
+  document.querySelectorAll('#status .chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.k===state.status)); render(); };
+['q','plant','tCrit','tWarn','tTarget','exExp'].forEach(id=>$(id).addEventListener('input',render));
+
+function pendingFor(it,plants,exExp){
+  const by = {}; PL.forEach(p=>by[p]=0);
+  it.pos.forEach(o=>{ if(exExp && o.expired) return; by[o.plant]+=o.t; });
+  return by;
+}
+function calc(it,scope,exExp,tC,tW,tT){
+  const ps = scope==='ALL' ? PL : [scope];
+  const pend = pendingFor(it,ps,exExp);
+  const sum = (o)=>ps.reduce((a,p)=>a+(o[p]||0),0);
+  const cons=sum(it.cons), stock=sum(it.stock), pe=ps.reduce((a,p)=>a+pend[p],0);
+  const daily = cons/30;
+  const daysW = daily>0 ? stock/daily : null;
+  const daysP = daily>0 ? (stock+pe)/daily : null;
+  let st;
+  if(daily<=0) st='na'; else if(daysW<tC) st='crit'; else if(daysW<tW) st='warn'; else st='ok';
+  const per = {};
+  PL.forEach(p=>{ const d=it.cons[p]/30; per[p]={cons:it.cons[p],stock:it.stock[p],pend:pend[p],
+    dW:d>0?it.stock[p]/d:null, dP:d>0?(it.stock[p]+pend[p])/d:null}; });
+  return {it,cons,stock,pend:pe,daysW,daysP,months:daily>0?daysP/30:null,
+    runout: daysP!=null ? new Date(ASOF.getTime()+daysP*864e5) : null,
+    gap: Math.max(0,tT*cons-stock-pe), st, per};
+}
+const cls = (d,tC,tW) => d==null?'':d<tC?'c-crit':d<tW?'c-warn':'c-ok';
+
+function render(){
+  const g=G();
+  $('unitnote').textContent = g.label+' items · '+(g.unit==='t'?'tonnes':'pieces')+' · days of cover = stock ÷ (monthly consumption ÷ 30)';
+  $('title2').textContent = 'Position of '+g.label.toLowerCase()+' materials';
+  const scope=$('plant').value, exExp=$('exExp').checked;
+  const tC=+$('tCrit').value||30, tW=Math.max(+$('tWarn').value||60,tC), tT=+$('tTarget').value||3;
+  const q=$('q').value.trim().toLowerCase();
+  let rows = G().items.map(it=>calc(it,scope,exExp,tC,tW,tT))
+    .filter(r=>r.cons+r.stock+r.pend>0);
+  const counts = {crit:0,warn:0,ok:0,na:0};
+  rows.forEach(r=>counts[r.st]++);
+  // KPIs
+  const active = rows.filter(r=>r.st!=='na');
+  const tot = k => rows.reduce((a,r)=>a+r[k],0);
+  const needing = rows.filter(r=>r.gap>0);
+  $('kpis').innerHTML = [
+    ['',(g.label==='Macro'?'Materials':'Packaging items')+' in view',fmt(rows.length),fmt(active.length)+' with consumption'],
+    ['crit','Critical',fmt(counts.crit),'stock cover < '+tC+' days'],
+    ['warn','Watch',fmt(counts.warn),tC+'–'+tW+' days'],
+    ['','Current stock',fmt(tot('stock'))+' '+g.unit,'warehouse on-hand'],
+    ['','Pending PBA/PO',fmt(tot('pend'))+' '+g.unit,'unreceived balance'],
+    ['','Shortfall to '+tT+' mo',fmt(tot('gap'))+' '+g.unit,fmt(needing.length)+' materials short']
+  ].map(([c,l,v,s])=>`<div class="kpi ${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+
+  // filters
+  let view = rows.filter(r=> (state.status==='all'||r.st===state.status) &&
+    (!q || (r.it.code+' '+r.it.name).toLowerCase().includes(q)));
+  // sort
+  const key = {code:r=>+r.it.code,name:r=>r.it.name,cons:r=>r.cons,stock:r=>r.stock,pend:r=>r.pend,
+    daysW:r=>r.daysW,daysP:r=>r.daysP,months:r=>r.months,gap:r=>r.gap,runout:r=>r.runout&&+r.runout}[state.sort];
+  view.sort((a,b)=>{ const x=key(a),y=key(b);
+    if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1;
+    return (x<y?-1:x>y?1:0)*state.dir; });
+  drawChart(rows,tC,tW);
+  drawGaps(rows,scope,tT);
+  drawTable(view,tC,tW);
+}
+
+function drawChart(rows,tC,tW){
+  const data = rows.filter(r=>r.daysW!=null).sort((a,b)=>a.daysW-b.daysW).slice(0,15);
+  if(!data.length){ $('chart').innerHTML='<div class="empty">No consumption data</div>'; return; }
+  const CAP=180; const W=560, rowH=24, L=200, R=60, H=data.length*rowH+24;
+  const x = d => L+(Math.min(d,CAP)/CAP)*(W-L-R);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Days of cover by material, lowest first">`;
+  [0,30,60,90,120,150,180].forEach(t=>{ s+=`<line x1="${x(t)}" x2="${x(t)}" y1="0" y2="${H-18}" stroke="var(--line)"/><text x="${x(t)}" y="${H-5}" font-size="10" text-anchor="middle" fill="var(--muted)">${t}</text>`; });
+  s+=`<line x1="${x(tC)}" x2="${x(tC)}" y1="0" y2="${H-18}" stroke="var(--crit)" stroke-dasharray="3 3"/>`;
+  data.forEach((r,i)=>{ const y=i*rowH+4;
+    const nm = r.it.name.length>30? r.it.name.slice(0,29)+'…' : r.it.name;
+    s+=`<text x="${L-6}" y="${y+13}" font-size="11.5" text-anchor="end"><title>${esc(r.it.name)}</title>${esc(nm)}</text>`;
+    const pw = x(r.daysP)-L, sw = x(r.daysW)-L;
+    s+=`<rect x="${L}" y="${y}" width="${Math.max(pw,0)}" height="16" rx="2" fill="var(--bar-b)"><title>${esc(r.it.name)}: ${fmt(r.daysP)} days incl. pending</title></rect>`;
+    s+=`<rect x="${L}" y="${y}" width="${Math.max(sw,1)}" height="16" rx="2" fill="var(--bar-a)"><title>${esc(r.it.name)}: ${fmt(r.daysW)} days warehouse stock</title></rect>`;
+    s+=`<text x="${L+Math.max(pw,sw)+4}" y="${y+12}" font-size="11" fill="var(--muted)">${fmt(r.daysW)}${r.daysP>CAP?' ▸':''}</text>`;
+  });
+  $('chart').innerHTML = s+'</svg>';
+  $('capNote').textContent = 'Axis capped at '+CAP+' days · dashed line = critical threshold';
+}
+
+function drawGaps(rows,scope,tT){
+  const g = rows.filter(r=>r.gap>0).sort((a,b)=>b.gap-a.gap).slice(0,8);
+  const ps = scope==='ALL'?PL:[scope];
+  // plant-level critical counts
+  let h='';
+  if(g.length){
+    h+=`<table class="mini"><tr><th class="l">Largest shortfall to ${tT} months</th><th>Short (${G().unit})</th><th>Cover + pending (days)</th></tr>`+
+      g.map(r=>`<tr><td class="l">${esc(r.it.name)}</td><td>${fmt(r.gap)}</td><td>${fmt(r.daysP)}</td></tr>`).join('')+'</table>';
+  } else h+='<div class="empty">Every material meets the target cover.</div>';
+  const crit = rows.filter(r=>r.st==='crit' && r.daysP!=null && r.daysP<r.daysW+1);
+  if(crit.length) h+=`<p><b>Critical with nothing on order:</b> ${crit.map(r=>esc(r.it.name)).join(', ')}.</p>`;
+  const cov = rows.filter(r=>r.st==='crit' && r.daysP>=+$('tWarn').value);
+  if(cov.length) h+=`<p><b>Low stock but covered by pending:</b> ${cov.slice(0,10).map(r=>esc(r.it.name)).join(', ')}. Delivery timing is the risk (no ETA in source).</p>`;
+  $('gaps').innerHTML=h;
+}
+
+function drawTable(view,tC,tW){
+  const cols=[['code','Code','l'],['name','Material','l'],['cons','Monthly cons. ('+G().unit+')'],['stock','Stock ('+G().unit+')'],['pend','Pending ('+G().unit+')'],
+    ['daysW','DIO whse (d)'],['daysP','DIO + pending (d)'],['months','Months cover'],['runout','Run-out date (incl. pending)'],['gap','Short to target ('+G().unit+')'],['st','Status','l']];
+  const ar = k => state.sort===k?(state.dir>0?' ▲':' ▼'):'';
+  let h='<thead><tr>'+cols.map(([k,l,a])=>`<th class="${a||''}" data-k="${k}">${l}<span class="ar">${ar(k)}</span></th>`).join('')+'</tr></thead><tbody>';
+  const lab={crit:'Critical',warn:'Watch',ok:'OK',na:'No usage'};
+  view.forEach(r=>{
+    h+=`<tr class="main" data-c="${r.it.code}"><td class="l">${r.it.code}</td><td class="l name">${esc(r.it.name)}</td>
+      <td>${fmt(r.cons)}</td><td>${fmt(r.stock,G().stockDec)}</td><td>${fmt(r.pend)}</td>
+      <td class="${cls(r.daysW,tC,tW)}">${fmt(r.daysW,1)}</td><td>${fmt(r.daysP,1)}</td><td>${fmt(r.months,2)}</td>
+      <td>${r.runout?fmtDate(r.runout):'–'}</td><td>${r.gap>0?fmt(r.gap):'–'}</td>
+      <td class="l"><span class="pill p-${r.st}">${lab[r.st]}</span></td></tr>`;
+    if(state.open===r.it.code) h+=`<tr class="detail"><td colspan="${cols.length}">${detail(r,tC,tW)}</td></tr>`;
+  });
+  if(!view.length) h+=`<tr><td colspan="${cols.length}" class="empty">No materials match.</td></tr>`;
+  $('tbl').innerHTML=h+'</tbody>';
+  $('rowcount').textContent='· '+view.length+' shown';
+}
+
+function detail(r,tC,tW){
+  const ps = PL.filter(p=>r.per[p].cons+r.per[p].stock+r.per[p].pend>0);
+  let h='<div class="dgrid"><div><b>By plant</b><table class="mini"><tr><th class="l">Plant</th><th>Cons. ('+G().unit+'/mo)</th><th>Stock ('+G().unit+')</th><th>Pending ('+G().unit+')</th><th>DIO whse</th><th>DIO + pend.</th></tr>'+
+    ps.map(p=>{const x=r.per[p];return `<tr><td class="l">${p}</td><td>${fmt(x.cons)}</td><td>${fmt(x.stock,G().stockDec)}</td><td>${fmt(x.pend)}</td><td class="${cls(x.dW,tC,tW)}">${fmt(x.dW,1)}</td><td>${fmt(x.dP,1)}</td></tr>`}).join('')+'</table></div>';
+  const exExp=$('exExp').checked, scope=$('plant').value;
+  const pos=r.it.pos.filter(o=>(scope==='ALL'||o.plant===scope)&&!(exExp&&o.expired)).slice(0,25);
+  h+='<div><b>Open PBA/PO lines</b>'+(pos.length?'<table class="mini"><tr><th class="l">Vendor</th><th>PBA</th><th class="l">Whse</th><th>Balance ('+G().unit+')</th><th class="l">Created</th><th class="l">Ends</th></tr>'+
+    pos.map(o=>`<tr><td class="l">${esc(o.vendor)}</td><td>${o.pba}</td><td class="l">${esc(o.wh)}</td><td>${fmt(o.t,G().stockDec)}</td><td class="l">${o.created}</td><td class="l">${o.end||'–'}${o.expired?' <span class="pill p-crit">expired</span>':''}</td></tr>`).join('')+'</table>':'<div class="note">Nothing pending.</div>')+'</div></div>';
+  return h;
+}
+
+$('tbl').addEventListener('click',e=>{
+  const th=e.target.closest('th'); if(th){ const k=th.dataset.k; if(state.sort===k) state.dir*=-1; else {state.sort=k; state.dir=(k==='name'||k==='code'||k==='st')?1:(k==='daysW'||k==='daysP'||k==='months'||k==='runout')?1:-1;} render(); return; }
+  const tr=e.target.closest('tr.main'); if(tr){ state.open = state.open===tr.dataset.c?null:tr.dataset.c; render(); }
+});
+render();
+</script>
+</body>
+</html>
