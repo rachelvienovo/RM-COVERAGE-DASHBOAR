@@ -175,7 +175,7 @@ function calc(it,scope,exExp,tC,tW,tT){
   const pend = pendingFor(it,ps,exExp);
   const sum = (o)=>ps.reduce((a,p)=>a+(o[p]||0),0);
   const cons=sum(it.cons), stock=sum(it.stock), pe=ps.reduce((a,p)=>a+pend[p],0);
-  const daily = cons/30;
+  const daily = Math.round(cons)>0 ? cons/30 : 0;   // under half a unit a month counts as no usage
   const daysW = daily>0 ? stock/daily : null;
   const daysP = daily>0 ? (stock+pe)/daily : null;
   let st;
