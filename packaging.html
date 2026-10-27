@@ -41,7 +41,7 @@
   .kpi .v{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums}
   .kpi .s{font-size:11.5px;color:var(--muted)}
   .kpi.crit .v{color:var(--crit)}.kpi.warn .v{color:var(--warn)}.kpi.ok .v{color:var(--ok)}
-  .wtiles{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+  .wtiles{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
   .wtiles .kpi.crit{border-color:var(--crit)}.wtiles .kpi.warn{border-color:var(--warn)}
   .grid2{display:grid;grid-template-columns:1fr;gap:12px}
   h2{font-size:14px;margin:0 0 8px}
@@ -368,8 +368,8 @@ function itemView(code){
     return `<div class="kpi ${st}"><div class="l"><b>${m.p}</b> <span class="pill p-${st}">${SL[st]}</span></div><div class="v">${m.dW!=null&&Math.round(m.cons)>0?fmt(m.dW,1)+' d':'–'}</div>
       <div class="s">+ pending: ${m.dP!=null&&Math.round(m.cons)>0?fmt(m.dP,1)+' d':'–'}</div>
       <div class="s">Stock ${fmt(m.stock,sd())} · Pending ${fmt(m.pend,sd())} ${u}</div><div class="s">Uses ${fmt(m.cons,dec())} ${u}/mo</div>
-      <div class="s" style="margin-top:6px">End-of-month stock (${u})</div>${tileChart(m,ML,u)}
       <div class="s" style="margin-top:3px;font-weight:600;color:${m.firstNeg>=0?'var(--crit)':'var(--ok)'}">${when}</div></div>`; }).join('')+`</div>`;
+  h+=`<div class="panel"><h2>Projected end-of-month stock, all warehouses</h2><div class="note" style="margin-bottom:6px">${fifo?'FIFO: stock and every pending PBA are available in order':'Deliveries placed by the Table view setting'}. Values in ${UNITNAME[u]}. Click a warehouse in the legend to hide or show it.</div><div id="projBox"></div></div>`;
   // summary by warehouse
   h+=`<div class="panel"><h2>Position by warehouse</h2><div class="scroll"><table><thead><tr><th class="l">Warehouse</th><th>Consumption (${u}/mo)</th><th>Stock (${u})</th><th>Pending (${u})</th><th>Avg pending price</th><th>DIO whse (d)</th><th>DIO + pending (d)</th><th>Cover situation</th></tr></thead><tbody>`+
    model.map(m=>`<tr><td class="l">${m.p}</td><td>${fmt(m.cons,dec())}</td><td>${fmt(m.stock,sd())}</td><td>${fmt(m.pend,sd())}</td><td>${m.avgP!=null?fmt(m.avgP,2):'–'}</td>
@@ -396,24 +396,45 @@ function itemView(code){
       ${m.firstNeg>=0?`<p class="note"><b>Runs out in ${ML[m.firstNeg]}</b> ${fifo?'once on-hand stock and every pending PBA have been consumed':'on current pending ('+(mode==='end'?'delivery at PBA end date':'spread to PBA end date')+')'}.</p>`:'<p class="note">Stays positive through '+ML[NM-1]+'.</p>'}</div>`;
   });
   h+=fifo?`<p class="note">FIFO view: each month's predicted consumption is taken from on-hand stock first, then from the oldest PBA (by creation date, then PBA number), moving to the next PBA only when the previous one is used up. A full month is charged each month, as in the cover report. The pending sheet has no ETAs, so every pending PBA is treated as available when its turn comes. End of month = stock + pending − consumption to date; negative values are shortfall.</p>`:`<p class="note">End of month = previous month end + deliveries − predicted consumption (a full month is charged each month, as in the cover report). The pending sheet has no ETAs, so deliveries are placed using the Table view setting; PBAs past their end date are placed in the current month. Negative values are shortfall.</p>`;
-  $('itemView').innerHTML=h; $('back').onclick=()=>{ location.hash=''; };
+  $('itemView').innerHTML=h; initProj(model,ML,u); $('back').onclick=()=>{ location.hash=''; };
   return true;
 }
 function plantOfWh(w){ if(/-(IT|QA)$/.test(w)) return null;
   if(w.startsWith('AC')) return 'AC'; if(w.startsWith('PFMIS')) return 'PFMIS'; if(w.startsWith('BUKID')||w.startsWith('ALAE')) return 'BUKID';
   if(w.startsWith('SOUTH')) return 'SOUTH'; if(w==='BAC'||w.startsWith('HOREB')||w.startsWith('HBEXT')) return 'HOREB';
   if(w.startsWith('ARGAO')) return 'ARGAO'; return null; }
-function tileChart(m,ML,u){
-  const W=250,H=142,L=8,R=8,T=18,B=42,n=m.eom.length, vals=m.eom;
-  const lo=Math.min(0,...vals), hi=Math.max(0,...vals), rng=(hi-lo)||1;
-  const y=v=>T+(1-(v-lo)/rng)*(H-T-B), y0=y(0), slot=(W-L-R)/n, bw=Math.min(46,slot*0.6);
-  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="End-of-month stock for ${m.p}" style="display:block;margin:8px 0 2px">`;
-  s+=`<line x1="${L}" x2="${W-R}" y1="${y0}" y2="${y0}" stroke="var(--line-strong)"/>`;
-  vals.forEach((v,i)=>{ const cx=L+slot*(i+.5), yy=y(v), top=Math.min(yy,y0), h=Math.max(Math.abs(yy-y0),1.5), neg=v<0;
-    s+=`<rect x="${cx-bw/2}" y="${top}" width="${bw}" height="${h}" rx="3" fill="${neg?'var(--crit)':'var(--bar-a)'}"><title>${m.p} ${ML[i]}: ${fmt(v,sd())} ${u}</title></rect>`;
-    s+=`<text x="${cx}" y="${neg?yy+13:yy-5}" font-size="11" font-weight="600" text-anchor="middle" fill="${neg?'var(--crit)':'var(--ink)'}">${fmt(v,0)}</text>`;
-    s+=`<text x="${cx}" y="${H-8}" font-size="10.5" text-anchor="middle" fill="var(--muted)">${ML[i]}</text>`; });
-  return s+'</svg>';
+const COL=['#1d6a4c','#c58a1c','#2f6fb0','#b4468a','#7a5ad0','#d2553f'];
+const hiddenPl=new Set();
+function niceTicks(lo,hi,n){
+  const raw=(hi-lo)/n||1, p=Math.pow(10,Math.floor(Math.log10(raw))), f=raw/p;
+  const step=(f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p;
+  const a=Math.floor(lo/step)*step, z=Math.ceil(hi/step)*step, out=[];
+  for(let v=a;v<=z+step/2;v+=step) out.push(Math.round(v/step)*step);
+  return out;
+}
+function initProj(model,ML,u){
+  const box=$('projBox'); if(!box) return;
+  const W=900,H=340,L=66,R=12,T=18,B=34;
+  const draw=()=>{
+    const vis=model.filter(m=>!hiddenPl.has(m.p)), k=Math.max(vis.length,1);
+    const col=m=>COL[PL.indexOf(m.p)%COL.length];
+    const all=vis.flatMap(m=>m.eom).concat([0]);
+    const ticks=niceTicks(Math.min(...all),Math.max(...all),5), lo=ticks[0], hi=ticks[ticks.length-1];
+    const y=v=>T+(1-(v-lo)/(hi-lo))*(H-T-B), gw=(W-L-R)/NM, bw=Math.min(46,gw*0.84/k), y0=y(0);
+    let s=`<div class="legend" style="margin-bottom:4px">${model.map(m=>`<span data-p="${m.p}" style="cursor:pointer;${hiddenPl.has(m.p)?'opacity:.35;text-decoration:line-through':''}"><i style="background:${col(m)}"></i>${m.p}</span>`).join('')}</div>`;
+    s+=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Projected end-of-month stock by warehouse" style="display:block">`;
+    if(lo<0) s+=`<rect x="${L}" y="${y0}" width="${W-L-R}" height="${y(lo)-y0}" fill="var(--crit-soft)" opacity=".7"/><text x="${L+6}" y="${y(lo)-6}" font-size="10.5" fill="var(--crit)">Shortfall</text>`;
+    ticks.forEach(v=>{ s+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-8}" y="${y(v)+4}" font-size="11" text-anchor="end" fill="var(--muted)">${fmt(v,0)}</text>`; });
+    s+=`<line x1="${L}" x2="${W-R}" y1="${y0}" y2="${y0}" stroke="var(--line-strong)" stroke-width="1.5"/>`;
+    ML.forEach((l,i)=>{ const gx=L+gw*i+(gw-bw*k)/2;
+      s+=`<text x="${L+gw*(i+.5)}" y="${H-10}" font-size="12" font-weight="600" text-anchor="middle" fill="var(--ink)">${l}</text>`;
+      vis.forEach((m,j)=>{ const v=m.eom[i], yy=y(v), x=gx+bw*j, neg=v<0;
+        s+=`<rect x="${x+1}" y="${Math.min(yy,y0)}" width="${bw-2}" height="${Math.max(Math.abs(yy-y0),1.5)}" rx="2" fill="${col(m)}"><title>${m.p} ${l}: ${fmt(v,sd())} ${u}${neg?' (shortfall)':''}</title></rect>`+
+          `<text x="${x+bw/2}" y="${neg?yy+12:yy-4}" font-size="${bw<30?9:10.5}" font-weight="600" text-anchor="middle" fill="${neg?'var(--crit)':'var(--ink)'}">${fmt(v,0)}</text>`; }); });
+    box.innerHTML=s+'</svg>';
+    box.querySelectorAll('.legend span').forEach(el=>el.onclick=()=>{ const p=el.dataset.p; hiddenPl.has(p)?hiddenPl.delete(p):hiddenPl.add(p); draw(); });
+  };
+  draw();
 }
 const itemLabel = x => x.name+' ('+x.code+')';
 $('itemList').innerHTML = G().items.map(x=>`<option value="${esc(itemLabel(x))}"></option>`).join('');
