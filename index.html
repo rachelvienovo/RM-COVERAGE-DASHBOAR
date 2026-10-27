@@ -113,7 +113,7 @@
     <select id="timing"><option value="fifo">FIFO: oldest PBA consumed first</option><option value="deliv">Deliveries by month</option></select>
   </label>
   <label class="itemonly">PBA availability
-    <select id="avail"><option value="end">Arrive at PBA end date</option><option value="spread">Arrive evenly until end date</option><option value="now">All available now</option></select>
+    <select id="avail"><option value="spread">Arrive evenly until end date</option><option value="end">Arrive at PBA end date</option><option value="now">All available now</option></select>
   </label>
   <div class="chips listonly" id="status" role="group" aria-label="Status filter"></div>
 </div>
@@ -415,7 +415,7 @@ function itemView(code){
     h+=`<tr class="eom"><td class="l" colspan="${fx}">END OF MONTH</td>${m.eom.map(v=>`<td class="${v<0?'neg':''}">${fmt(v,sd())}</td>`).join('')}<td></td></tr></tbody></table></div>
       ${m.firstNeg>=0?`<p class="note"><b>Runs out in ${ML[m.firstNeg]}</b> on the current PBAs (${mode==='end'?'arriving at their end date':mode==='spread'?'arriving evenly until their end date':'all available now'}).</p>`:'<p class="note">Stays positive through '+ML[NM-1]+'.</p>'}</div>`;
   });
-  h+=fifo?`<p class="note">FIFO view: each month's predicted consumption is taken from on-hand stock first, then from the oldest PBA (by creation date, then PBA number) that has arrived, moving to the next PBA only when the previous one is used up. Shortfall in a month is carried forward and filled when the next PBA arrives. A full month is charged each month, as in the cover report. The pending sheet has no ETAs, so arrival follows the PBA availability setting (default: at the PBA end date). End of month = stock + PBAs arrived to date − consumption to date; negative values are shortfall.</p>`:`<p class="note">End of month = previous month end + deliveries − predicted consumption (a full month is charged each month, as in the cover report). The pending sheet has no ETAs, so deliveries are placed using the PBA availability setting; PBAs past their end date are placed in the current month. Negative values are shortfall.</p>`;
+  h+=fifo?`<p class="note">FIFO view: each month's predicted consumption is taken from on-hand stock first, then from the oldest PBA (by creation date, then PBA number) that has arrived, moving to the next PBA only when the previous one is used up. Shortfall in a month is carried forward and filled when the next PBA arrives. A full month is charged each month, as in the cover report. The pending sheet has no ETAs, so arrival follows the PBA availability setting (default: evenly from now until the PBA end date). End of month = stock + PBAs arrived to date − consumption to date; negative values are shortfall.</p>`:`<p class="note">End of month = previous month end + deliveries − predicted consumption (a full month is charged each month, as in the cover report). The pending sheet has no ETAs, so deliveries are placed using the PBA availability setting; PBAs past their end date are placed in the current month. Negative values are shortfall.</p>`;
   $('itemView').innerHTML=h; initProj(model,ML,u); $('back').onclick=()=>{ location.hash=''; };
   return true;
 }
