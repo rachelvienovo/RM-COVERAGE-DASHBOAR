@@ -363,12 +363,6 @@ function itemView(code){
     ['','Cover incl. pending',tdP!=null?fmt(tdP,1)+' d':'–','runs out about '+ro],
     [tgap>0?'warn':'ok','Short to '+tT+' months',tgap>0?fmt(tgap,sd())+' '+u:'None','sum of warehouse shortfalls']
   ].map(([c,l,v,s])=>`<div class="kpi ${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('')+`</div>`;
-  h+=`<div class="kpis wtiles">`+model.map(m=>{ const st=ST(Math.round(m.cons)>0?m.dW:null);
-    const when=m.firstNeg>=0?'Runs out in '+ML[m.firstNeg]:'Covered through '+ML[NM-1];
-    return `<div class="kpi ${st}"><div class="l"><b>${m.p}</b> <span class="pill p-${st}">${SL[st]}</span></div><div class="v">${m.dW!=null&&Math.round(m.cons)>0?fmt(m.dW,1)+' d':'–'}</div>
-      <div class="s">+ pending: ${m.dP!=null&&Math.round(m.cons)>0?fmt(m.dP,1)+' d':'–'}</div>
-      <div class="s">Stock ${fmt(m.stock,sd())} · Pending ${fmt(m.pend,sd())} ${u}</div><div class="s">Uses ${fmt(m.cons,dec())} ${u}/mo</div>
-      <div class="s" style="margin-top:3px;font-weight:600;color:${m.firstNeg>=0?'var(--crit)':'var(--ok)'}">${when}</div></div>`; }).join('')+`</div>`;
   h+=`<div class="panel"><h2>Projected end-of-month stock, all warehouses</h2><div class="note" style="margin-bottom:6px">${fifo?'FIFO: stock and every pending PBA are available in order':'Deliveries placed by the Table view setting'}. Values in ${UNITNAME[u]}. Click a warehouse in the legend to hide or show it.</div><div id="projBox"></div></div>`;
   // summary by warehouse
   h+=`<div class="panel"><h2>Position by warehouse</h2><div class="scroll"><table><thead><tr><th class="l">Warehouse</th><th>Consumption (${u}/mo)</th><th>Stock (${u})</th><th>Pending (${u})</th><th>Avg pending price</th><th>DIO whse (d)</th><th>DIO + pending (d)</th><th>Cover situation</th></tr></thead><tbody>`+
