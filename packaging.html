@@ -75,6 +75,14 @@
   td.pos0{color:var(--ok)}
   tr.eom td{border-top:2px solid var(--line-strong);font-weight:600}
   tr.pred td{background:var(--pred-soft);color:var(--pred);font-weight:600}
+  .posbox{border-top:4px solid var(--accent);background:linear-gradient(var(--accent-soft),var(--panel) 90px)}
+  .posbox h2{color:var(--accent);font-size:15px}
+  table.pos th{background:var(--accent-soft);color:var(--accent);border-bottom:2px solid var(--accent);font-weight:700}
+  table.pos tbody tr:nth-child(even) td{background:color-mix(in srgb,var(--accent-soft) 45%,var(--panel))}
+  table.pos tbody tr:hover td{background:var(--accent-soft)}
+  table.pos td.l{font-weight:650;color:var(--accent)}
+  table.pos td.c-crit{background:var(--crit-soft)!important}table.pos td.c-warn{background:var(--warn-soft)!important}
+  table.pos tr.eom td{background:var(--accent-soft)!important;color:var(--accent);border-top:2px solid var(--accent)}
   .empty{padding:20px;color:var(--muted);text-align:center}
   @media (min-width:900px){.grid2{grid-template-columns:5fr 4fr}}
 </style>
@@ -365,7 +373,7 @@ function itemView(code){
   ].map(([c,l,v,s])=>`<div class="kpi ${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('')+`</div>`;
   h+=`<div class="panel"><h2>Projected end-of-month stock, all warehouses</h2><div class="note" style="margin-bottom:6px">${fifo?'FIFO: stock and every pending PBA are available in order':'Deliveries placed by the Table view setting'}. Values in ${UNITNAME[u]}. Click a warehouse in the legend to hide or show it.</div><div id="projBox"></div></div>`;
   // summary by warehouse
-  h+=`<div class="panel"><h2>Position by warehouse</h2><div class="scroll"><table><thead><tr><th class="l">Warehouse</th><th>Consumption (${u}/mo)</th><th>Stock (${u})</th><th>Pending (${u})</th><th>Avg pending price</th><th>DIO whse (d)</th><th>DIO + pending (d)</th><th>Cover situation</th></tr></thead><tbody>`+
+  h+=`<div class="panel posbox"><h2>Position by warehouse</h2><div class="scroll"><table class="pos"><thead><tr><th class="l">Warehouse</th><th>Consumption (${u}/mo)</th><th>Stock (${u})</th><th>Pending (${u})</th><th>Avg pending price</th><th>DIO whse (d)</th><th>DIO + pending (d)</th><th>Cover situation</th></tr></thead><tbody>`+
    model.map(m=>`<tr><td class="l">${m.p}</td><td>${fmt(m.cons,dec())}</td><td>${fmt(m.stock,sd())}</td><td>${fmt(m.pend,sd())}</td><td>${m.avgP!=null?fmt(m.avgP,2):'–'}</td>
      <td class="${cls(m.dW,tC,tW)}">${fmt(m.dW,1)}</td><td>${fmt(m.dP,1)}</td><td>${m.dP!=null?fmtDate(new Date(ASOF.getTime()+m.dP*864e5)):'–'}</td></tr>`).join('')+
    `<tr class="eom"><td class="l">TOTAL</td><td>${fmt(tcons,dec())}</td><td>${fmt(tstock,sd())}</td><td>${fmt(tpend,sd())}</td><td></td><td></td><td></td><td></td></tr></tbody></table></div>
