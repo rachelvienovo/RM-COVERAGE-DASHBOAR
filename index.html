@@ -40,7 +40,9 @@
   .kpi .l{font-size:11.5px;color:var(--muted)}
   .kpi .v{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums}
   .kpi .s{font-size:11.5px;color:var(--muted)}
-  .kpi.crit .v{color:var(--crit)}.kpi.warn .v{color:var(--warn)}
+  .kpi.crit .v{color:var(--crit)}.kpi.warn .v{color:var(--warn)}.kpi.ok .v{color:var(--ok)}
+  .wtiles{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+  .wtiles .kpi.crit{border-color:var(--crit)}.wtiles .kpi.warn{border-color:var(--warn)}
   .grid2{display:grid;grid-template-columns:1fr;gap:12px}
   h2{font-size:14px;margin:0 0 8px}
   .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-bottom:6px;flex-wrap:wrap}
@@ -348,6 +350,24 @@ function itemView(code){
   let h=`<div class="panel"><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><button class="back" id="back">← All items</button>
     
     <div><h2 style="font-size:17px;margin:0">${esc(it.name)} <span class="note">${esc(it.code)}</span></h2><div class="note">${G().label} · ${UNITNAME[u]} · as of ${fmtDate(ASOF)}</div></div></div></div>`;
+  // summary tiles
+  const tT=+$('tTarget').value||3, ST=d=>d==null?'na':d<tC?'crit':d<tW?'warn':'ok', SL={crit:'Critical',warn:'Watch',ok:'OK',na:'No usage'};
+  const tdW=Math.round(tcons)>0?tstock/(tcons/30):null, tdP=Math.round(tcons)>0?(tstock+tpend)/(tcons/30):null, tgap=model.reduce((s,m)=>s+Math.max(0,tT*m.cons-m.stock-m.pend),0);   // per warehouse: stock is not moved between plants
+  const ro=tdP!=null?fmtDate(new Date(ASOF.getTime()+tdP*864e5)):'–';
+  h+=`<div class="kpis">`+[
+    ['','Total stock',fmt(tstock,sd())+' '+u,'across '+model.length+' warehouse'+(model.length>1?'s':'')],
+    ['','Pending PBA/PO',fmt(tpend,sd())+' '+u,'unreceived balance'],
+    ['','Monthly consumption',fmt(tcons,dec())+' '+u,'avg weekly forecast × 4'],
+    [ST(tdW),'Days of cover (stock)',tdW!=null?fmt(tdW,1)+' d':'–',SL[ST(tdW)]],
+    ['','Cover incl. pending',tdP!=null?fmt(tdP,1)+' d':'–','runs out about '+ro],
+    [tgap>0?'warn':'ok','Short to '+tT+' months',tgap>0?fmt(tgap,sd())+' '+u:'None','sum of warehouse shortfalls']
+  ].map(([c,l,v,s])=>`<div class="kpi ${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('')+`</div>`;
+  h+=`<div class="kpis wtiles">`+model.map(m=>{ const st=ST(Math.round(m.cons)>0?m.dW:null);
+    const when=m.firstNeg>=0?'Runs out in '+ML[m.firstNeg]:'Covered through '+ML[NM-1];
+    return `<div class="kpi ${st}"><div class="l"><b>${m.p}</b> <span class="pill p-${st}">${SL[st]}</span></div><div class="v">${m.dW!=null&&Math.round(m.cons)>0?fmt(m.dW,1)+' d':'–'}</div>
+      <div class="s">+ pending: ${m.dP!=null&&Math.round(m.cons)>0?fmt(m.dP,1)+' d':'–'}</div>
+      <div class="s">Stock ${fmt(m.stock,sd())} · Pending ${fmt(m.pend,sd())} ${u}</div><div class="s">Uses ${fmt(m.cons,dec())} ${u}/mo</div>
+      <div class="s" style="margin-top:3px;font-weight:600;color:${m.firstNeg>=0?'var(--crit)':'var(--ok)'}">${when}</div></div>`; }).join('')+`</div>`;
   // summary by warehouse
   h+=`<div class="panel"><h2>Position by warehouse</h2><div class="scroll"><table><thead><tr><th class="l">Warehouse</th><th>Consumption (${u}/mo)</th><th>Stock (${u})</th><th>Pending (${u})</th><th>Avg pending price</th><th>DIO whse (d)</th><th>DIO + pending (d)</th><th>Cover situation</th></tr></thead><tbody>`+
    model.map(m=>`<tr><td class="l">${m.p}</td><td>${fmt(m.cons,dec())}</td><td>${fmt(m.stock,sd())}</td><td>${fmt(m.pend,sd())}</td><td>${m.avgP!=null?fmt(m.avgP,2):'–'}</td>
