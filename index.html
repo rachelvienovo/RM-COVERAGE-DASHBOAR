@@ -99,8 +99,8 @@
   <label>Watch below (days)<input type="number" id="tWarn" value="60" min="1"></label>
   <label>Target cover (months)<input type="number" id="tTarget" value="3" min="0.5" step="0.5"></label>
   <label class="chk"><input type="checkbox" id="exExp"> Exclude expired PBAs</label>
-  <label class="itemonly">Delivery timing
-    <select id="timing"><option value="end">At PBA end date (conservative)</option><option value="spread">Spread evenly until end date</option></select>
+  <label class="itemonly">Table view
+    <select id="timing"><option value="fifo">FIFO: oldest PBA consumed first</option><option value="end">Deliveries at PBA end date</option><option value="spread">Deliveries spread to PBA end date</option></select>
   </label>
   <div class="chips listonly" id="status" role="group" aria-label="Status filter"></div>
 </div>
@@ -317,21 +317,30 @@ const sd = () => G().stockDec;
 function itemView(code){
   const it=G().items.find(x=>x.code===code); if(!it) return false;
   const tC=+$('tCrit').value||30, tW=Math.max(+$('tWarn').value||60,tC);
-  const exExp=$('exExp').checked, mode=$('timing').value, u=G().unit, ML=months();
+  const exExp=$('exExp').checked, mode=$('timing').value, fifo=mode==='fifo', u=G().unit, ML=months();
   const pos=it.pos.filter(o=>!(exExp&&o.expired));
   const whs=PL.filter(p=>it.cons[p]+it.stock[p]+pos.some(o=>o.plant===p)>0 || false)
     .filter(p=>it.cons[p]>0||it.stock[p]>0||pos.some(o=>o.plant===p));
   // per-warehouse model
   const model=whs.map(p=>{
-    const lines=pos.filter(o=>o.plant===p).sort((a,b)=>a.created<b.created?-1:1).map(o=>({o,...schedule(o,mode)}));
+    const lines=pos.filter(o=>o.plant===p).sort((a,b)=>a.created<b.created?-1:a.created>b.created?1:a.pba-b.pba)
+      .map(o=>({o,...(fifo?{arr:[],later:0}:schedule(o,mode))}));
     const cons=it.cons[p], stock=it.stock[p];
-    const inc=new Array(NM).fill(0); lines.forEach(l=>l.arr.forEach((v,i)=>inc[i]+=v));
-    const eom=[]; let prev=stock; for(let i=0;i<NM;i++){ prev=prev+inc[i]-cons; eom.push(prev); }
     const pend=lines.reduce((a,l)=>a+l.o.t,0);
+    const inc=new Array(NM).fill(0); lines.forEach(l=>l.arr.forEach((v,i)=>inc[i]+=v));
+    const eom=[]; let layers=null, shortfall=null;
+    if(fifo){
+      // oldest PBA first: on-hand stock is used first, then each PBA in order of creation
+      layers=[{stock:true,qty:stock,left:stock,use:new Array(NM).fill(0),done:-1}].concat(lines.map(l=>({l,qty:l.o.t,left:l.o.t,use:new Array(NM).fill(0),done:-1})));
+      shortfall=new Array(NM).fill(0);
+      for(let i=0;i<NM;i++){ let need=cons;
+        for(const ly of layers){ if(need<=1e-9) break; const take=Math.min(ly.left,need); if(take>0){ ly.left-=take; ly.use[i]=take; need-=take; if(ly.left<=1e-9&&ly.done<0) ly.done=i; } }
+        shortfall[i]=Math.max(0,need); eom.push(stock+pend-cons*(i+1)); }
+    } else { let prev=stock; for(let i=0;i<NM;i++){ prev=prev+inc[i]-cons; eom.push(prev); } }
     const pw=lines.filter(l=>l.o.price>0), pt=pw.reduce((a,l)=>a+l.o.t,0);
     const avgP=pt>0?pw.reduce((a,l)=>a+l.o.t*l.o.price,0)/pt:null;
     const d=cons/30;
-    return {p,lines,cons,stock,inc,eom,pend,avgP,dW:d>0?stock/d:null,dP:d>0?(stock+pend)/d:null,
+    return {p,lines,layers,shortfall,cons,stock,inc,eom,pend,avgP,dW:d>0?stock/d:null,dP:d>0?(stock+pend)/d:null,
       firstNeg:eom.findIndex(v=>v<0), sub:it.stockWh?Object.entries(it.stockWh).filter(([w])=>plantOfWh(w)===p):[]};
   });
   const tot=k=>model.reduce((a,m)=>a+m[k],0);
@@ -350,17 +359,24 @@ function itemView(code){
   // one table per warehouse
   model.forEach(m=>{
     const subTxt=m.sub.length?m.sub.sort().map(([w,v])=>`${w} ${fmt(v,sd())}`).join(' · '):'';
+    const fx=fifo?8:7;
     h+=`<div class="panel wh"><h3>${m.p}</h3><div class="note" style="margin-bottom:6px">Stock ${fmt(m.stock,sd())} ${u}${subTxt?' ('+subTxt+')':''} · consumption ${fmt(m.cons,dec())} ${u}/mo · pending ${fmt(m.pend,sd())} ${u}</div><div class="scroll"><table class="mini"><thead><tr>
-      <th class="l">Supplier</th><th>PBA no.</th><th class="l">PO date</th><th class="l">Whse</th><th>Pending price</th><th>Balance (${u})</th><th class="l">PBA ends</th>${ML.map(x=>`<th>${x}</th>`).join('')}<th>Later</th></tr></thead><tbody>`;
-    m.lines.forEach(l=>{ const o=l.o;
+      <th class="l">Supplier</th><th>PBA no.</th><th class="l">PO date</th><th class="l">Whse</th><th>Pending price</th><th>Balance (${u})</th><th class="l">PBA ends</th>${fifo?'<th class="l">Used up</th>':''}${ML.map(x=>`<th>${x}</th>`).join('')}<th>${fifo?'Left':'Later'}</th></tr></thead><tbody>`;
+    const dn=ly=>ly.qty<=0?'–':ly.done>=0?ML[ly.done]:'after '+ML[NM-1];
+    if(fifo){
+      const sl=m.layers[0];
+      h+=`<tr><td class="l"><b>On-hand stock</b></td><td></td><td class="l"></td><td class="l"></td><td></td><td>${fmt(sl.qty,sd())}</td><td class="l"></td><td class="l">${dn(sl)}</td>${sl.use.map(v=>`<td>${v>0?fmt(v,sd()):''}</td>`).join('')}<td>${sl.left>1e-9?fmt(sl.left,sd()):''}</td></tr>`;
+    }
+    m.lines.forEach((l,k)=>{ const o=l.o, ly=fifo?m.layers[k+1]:null;
       h+=`<tr><td class="l">${esc(o.vendor)}</td><td>${o.pba}</td><td class="l">${o.created}</td><td class="l">${esc(o.wh)}</td><td>${o.price>0?fmt(o.price,2):'–'}</td><td>${fmt(o.t,sd())}</td>
-        <td class="l">${o.end||'–'}${o.expired?' <span class="pill p-crit">expired</span>':''}</td>${l.arr.map(v=>`<td>${v?fmt(v,sd()):''}</td>`).join('')}<td>${l.later?fmt(l.later,sd()):''}</td></tr>`; });
-    if(!m.lines.length) h+=`<tr><td class="l" colspan="${8+NM}"><span class="note">Nothing pending for this warehouse.</span></td></tr>`;
-    h+=`<tr class="pred"><td class="l" colspan="7">Predicted consumption</td>${ML.map(()=>`<td>${fmt(m.cons,dec())}</td>`).join('')}<td></td></tr>
-      <tr class="eom"><td class="l" colspan="7">END OF MONTH</td>${m.eom.map(v=>`<td class="${v<0?'neg':''}">${fmt(v,sd())}</td>`).join('')}<td></td></tr></tbody></table></div>
-      ${m.firstNeg>=0?`<p class="note"><b>Runs out in ${ML[m.firstNeg]}</b> on current pending (${mode==='end'?'delivery at PBA end date':'spread to PBA end date'}).</p>`:'<p class="note">Stays positive through '+ML[NM-1]+'.</p>'}</div>`;
+        <td class="l">${o.end||'–'}${o.expired?' <span class="pill p-crit">expired</span>':''}</td>${fifo?`<td class="l">${dn(ly)}</td>`:''}${fifo?ly.use.map(v=>`<td>${v>0?fmt(v,sd()):''}</td>`).join(''):l.arr.map(v=>`<td>${v?fmt(v,sd()):''}</td>`).join('')}<td>${fifo?(ly.left>1e-9?fmt(ly.left,sd()):''):(l.later?fmt(l.later,sd()):'')}</td></tr>`; });
+    if(!m.lines.length) h+=`<tr><td class="l" colspan="${fx+1+NM}"><span class="note">Nothing pending for this warehouse.</span></td></tr>`;
+    h+=`<tr class="pred"><td class="l" colspan="${fx}">Predicted consumption</td>${ML.map(()=>`<td>${fmt(m.cons,dec())}</td>`).join('')}<td></td></tr>`;
+    if(fifo&&m.shortfall.some(v=>v>1e-9)) h+=`<tr><td class="l" colspan="${fx}"><b>No cover</b> <span class="note">(consumption with no stock or PBA left)</span></td>${m.shortfall.map(v=>`<td class="${v>1e-9?'neg':''}">${v>1e-9?fmt(v,sd()):''}</td>`).join('')}<td></td></tr>`;
+    h+=`<tr class="eom"><td class="l" colspan="${fx}">END OF MONTH</td>${m.eom.map(v=>`<td class="${v<0?'neg':''}">${fmt(v,sd())}</td>`).join('')}<td></td></tr></tbody></table></div>
+      ${m.firstNeg>=0?`<p class="note"><b>Runs out in ${ML[m.firstNeg]}</b> ${fifo?'once on-hand stock and every pending PBA have been consumed':'on current pending ('+(mode==='end'?'delivery at PBA end date':'spread to PBA end date')+')'}.</p>`:'<p class="note">Stays positive through '+ML[NM-1]+'.</p>'}</div>`;
   });
-  h+=`<p class="note">End of month = previous month end + deliveries − predicted consumption (a full month is charged each month, as in the cover report). The pending sheet has no ETAs, so deliveries are placed using the Delivery timing control; PBAs past their end date are placed in the current month. Negative values are shortfall.</p>`;
+  h+=fifo?`<p class="note">FIFO view: each month's predicted consumption is taken from on-hand stock first, then from the oldest PBA (by creation date, then PBA number), moving to the next PBA only when the previous one is used up. A full month is charged each month, as in the cover report. The pending sheet has no ETAs, so every pending PBA is treated as available when its turn comes. End of month = stock + pending − consumption to date; negative values are shortfall.</p>`:`<p class="note">End of month = previous month end + deliveries − predicted consumption (a full month is charged each month, as in the cover report). The pending sheet has no ETAs, so deliveries are placed using the Table view setting; PBAs past their end date are placed in the current month. Negative values are shortfall.</p>`;
   $('itemView').innerHTML=h; $('back').onclick=()=>{ location.hash=''; };
   return true;
 }
