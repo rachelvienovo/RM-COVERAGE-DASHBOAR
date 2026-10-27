@@ -373,7 +373,6 @@ function itemView(code){
         <td class="l">${o.end||'–'}${o.expired?' <span class="pill p-crit">expired</span>':''}</td>${fifo?`<td class="l">${dn(ly)}</td>`:''}${fifo?ly.use.map(v=>`<td>${v>0?fmt(v,sd()):''}</td>`).join(''):l.arr.map(v=>`<td>${v?fmt(v,sd()):''}</td>`).join('')}<td>${fifo?(ly.left>1e-9?fmt(ly.left,sd()):''):(l.later?fmt(l.later,sd()):'')}</td></tr>`; });
     if(!m.lines.length) h+=`<tr><td class="l" colspan="${fx+1+NM}"><span class="note">Nothing pending for this warehouse.</span></td></tr>`;
     h+=`<tr class="pred"><td class="l" colspan="${fx}">Predicted consumption</td>${ML.map(()=>`<td>${fmt(m.cons,dec())}</td>`).join('')}<td></td></tr>`;
-    if(fifo&&m.shortfall.some(v=>v>1e-9)) h+=`<tr><td class="l" colspan="${fx}"><b>No cover</b> <span class="note">(consumption with no stock or PBA left)</span></td>${m.shortfall.map(v=>`<td class="${v>1e-9?'neg':''}">${v>1e-9?fmt(v,sd()):''}</td>`).join('')}<td></td></tr>`;
     h+=`<tr class="eom"><td class="l" colspan="${fx}">END OF MONTH</td>${m.eom.map(v=>`<td class="${v<0?'neg':''}">${fmt(v,sd())}</td>`).join('')}<td></td></tr></tbody></table></div>
       ${m.firstNeg>=0?`<p class="note"><b>Runs out in ${ML[m.firstNeg]}</b> ${fifo?'once on-hand stock and every pending PBA have been consumed':'on current pending ('+(mode==='end'?'delivery at PBA end date':'spread to PBA end date')+')'}.</p>`:'<p class="note">Stays positive through '+ML[NM-1]+'.</p>'}</div>`;
   });
