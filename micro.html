@@ -7,14 +7,14 @@
 <style>
   :root{
     --bg:#eef2ef;--panel:#ffffff;--ink:#14221c;--muted:#5a6a63;--line:#d6dfda;--line-strong:#9fb2a9;
-    --accent:#1d6a4c;--accent-soft:#e3f0ea;--pred:#1f5fa8;--pred-soft:#e4eefa;
+    --accent:#1d6a4c;--accent-soft:#e3f0ea;--pred:#1f5fa8;--pred-soft:#e4eefa;--stock-bg:#fff7cc;
     --crit:#b42318;--crit-soft:#fdecea;--warn:#a86f12;--warn-soft:#fbf1dc;--ok:#167a4a;--ok-soft:#e2f4ea;--na:#6b7a73;--na-soft:#edf1ee;
     --bar-a:#1d6a4c;--bar-b:#8fc4ab;
     --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   }
   @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
     --bg:#0e1512;--panel:#16201c;--ink:#e4ece8;--muted:#94a59d;--line:#26342e;--line-strong:#4a5f56;
-    --accent:#4cbc8b;--accent-soft:#16302a;--pred:#8ec2f2;--pred-soft:#16273a;
+    --accent:#4cbc8b;--accent-soft:#16302a;--pred:#8ec2f2;--pred-soft:#16273a;--stock-bg:#3a3414;
     --crit:#f07b70;--crit-soft:#341a18;--warn:#e3b25e;--warn-soft:#2c2414;--ok:#55c98f;--ok-soft:#14301f;--na:#94a59d;--na-soft:#1c2823;
     --bar-a:#4cbc8b;--bar-b:#2b5a47;color-scheme:dark}}
   *{box-sizing:border-box}
@@ -74,6 +74,7 @@
   td.neg{background:var(--crit-soft);color:var(--crit);font-weight:600}
   td.pos0{color:var(--ok)}
   tr.eom td{border-top:2px solid var(--line-strong);font-weight:600}
+  tr.stockrow td{background:var(--stock-bg)}
   tr.pred td{background:var(--pred-soft);color:var(--pred);font-weight:600}
   .posbox{border-top:4px solid var(--accent);background:linear-gradient(var(--accent-soft),var(--panel) 90px)}
   .posbox h2{color:var(--accent);font-size:15px}
@@ -397,7 +398,7 @@ function itemView(code){
     const dn=ly=>ly.qty<=0?'–':ly.done>=0?ML[ly.done]:'after '+ML[NM-1];
     if(fifo){
       const sl=m.layers[0];
-      h+=`<tr><td class="l"><b>On-hand stock</b></td><td></td><td class="l"></td><td class="l"></td><td></td><td>${fmt(sl.qty,sd())}</td><td class="l"></td><td class="l">on hand</td><td class="l">${dn(sl)}</td>${ML.map((x,i)=>`<td>${sl.pulled===i?fmt(sl.qty,sd()):''}</td>`).join('')}<td>${sl.left>1e-9?fmt(sl.left,sd()):''}</td></tr>`;
+      h+=`<tr class="stockrow"><td class="l"><b>On-hand stock</b></td><td></td><td class="l"></td><td class="l"></td><td></td><td>${fmt(sl.qty,sd())}</td><td class="l"></td><td class="l">on hand</td><td class="l">${dn(sl)}</td>${ML.map((x,i)=>`<td>${sl.pulled===i?fmt(sl.qty,sd()):''}</td>`).join('')}<td>${sl.left>1e-9?fmt(sl.left,sd()):''}</td></tr>`;
     }
     m.lines.forEach((l,k)=>{ const o=l.o, ly=fifo?m.layers[k+1]:null;
       h+=`<tr><td class="l">${esc(o.vendor)}</td><td>${o.pba}</td><td class="l">${o.created}</td><td class="l">${esc(o.wh)}</td><td>${o.price>0?fmt(o.price,2):'–'}</td><td>${fmt(o.t,sd())}</td>
