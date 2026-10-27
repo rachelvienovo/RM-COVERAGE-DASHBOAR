@@ -228,7 +228,7 @@ function render(){
 }
 
 function drawChart(rows,tC,tW){
-  const data = rows.filter(r=>r.daysW!=null).sort((a,b)=>a.daysW-b.daysW).slice(0,15);
+  const data = rows.filter(r=>r.daysW!=null && Math.round(r.cons)>0).sort((a,b)=>a.daysW-b.daysW).slice(0,15);
   if(!data.length){ $('chart').innerHTML='<div class="empty">No consumption data</div>'; return; }
   const CAP=180; const W=560, rowH=24, L=200, R=60, H=data.length*rowH+24;
   const x = d => L+(Math.min(d,CAP)/CAP)*(W-L-R);
@@ -244,7 +244,7 @@ function drawChart(rows,tC,tW){
     s+=`<text x="${L+Math.max(pw,sw)+4}" y="${y+12}" font-size="11" fill="var(--muted)">${fmt(r.daysW)}${r.daysP>CAP?' ▸':''}</text>`;
   });
   $('chart').innerHTML = s+'</svg>';
-  $('capNote').textContent = 'Axis capped at '+CAP+' days · dashed line = critical threshold';
+  $('capNote').textContent = 'Axis capped at '+CAP+' days · dashed line = critical threshold · items with no consumption are left out';
 }
 
 function drawGaps(rows,scope,tT){
