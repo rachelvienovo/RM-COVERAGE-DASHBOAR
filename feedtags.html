@@ -121,7 +121,7 @@
 
 <div class="grid2">
   <div class="panel">
-    <h2>Days of cover — lowest first</h2>
+    <h2>Days of cover — 10 lowest</h2>
     <div class="legend"><span><i style="background:var(--bar-a)"></i>Warehouse stock</span><span><i style="background:var(--bar-b)"></i>+ pending PBA/PO</span><span id="capNote"></span></div>
     <div id="chart"></div>
   </div>
@@ -239,7 +239,7 @@ function render(){
 }
 
 function drawChart(rows,tC,tW){
-  const data = rows.filter(r=>r.daysW!=null && Math.round(r.cons)>0).sort((a,b)=>a.daysW-b.daysW).slice(0,15);
+  const data = rows.filter(r=>r.daysW!=null && Math.round(r.cons)>0).sort((a,b)=>a.daysW-b.daysW).slice(0,10);
   if(!data.length){ $('chart').innerHTML='<div class="empty">No consumption data</div>'; return; }
   const CAP=180; const W=560, rowH=24, L=200, R=60, H=data.length*rowH+24;
   const x = d => L+(Math.min(d,CAP)/CAP)*(W-L-R);
@@ -255,7 +255,7 @@ function drawChart(rows,tC,tW){
     s+=`<text x="${L+Math.max(pw,sw)+4}" y="${y+12}" font-size="11" fill="var(--muted)">${fmt(r.daysW)}${r.daysP>CAP?' ▸':''}</text>`;
   });
   $('chart').innerHTML = s+'</svg>';
-  $('capNote').textContent = 'Axis capped at '+CAP+' days · dashed line = critical threshold · items with no consumption are left out';
+  $('capNote').textContent = 'Axis capped at '+CAP+' days · dashed line = critical threshold · top 10 lowest shown, items with no consumption are left out';
 }
 
 function drawGaps(rows,scope,tT){
