@@ -3,8 +3,9 @@ W=sys.argv[1]; OUT=sys.argv[2]; TAKEN=sys.argv[3]   # work dir, output dir (repo
 HIST=OUT+'history.json'
 nav_pages=[('index.html','Macro coverage'),('packaging.html','Packaging coverage'),('micro.html','Micro coverage'),('feedtags.html','Feedtags coverage')]
 
-def snap(d,taken,inv,pba):
+def snap(d,taken,inv,pba,cost=None):
     out={'taken':taken,'inv':inv,'pba':pba,'groups':{},'detail':{}}
+    if cost: out['cost']=cost
     for g,v in d['groups'].items():
         its=v['items']; det={}; crit=0; wc=0
         for i in its:
@@ -20,7 +21,7 @@ def snap(d,taken,inv,pba):
 
 hist=json.load(open(HIST)) if os.path.exists(HIST) else []
 cur=json.load(open(W+'data.json'))
-new=snap(cur,TAKEN,cur['invSyncFull'],cur['pbaSyncFull'])
+new=snap(cur,TAKEN,cur['invSyncFull'],cur['pbaSyncFull'],cur.get('costSyncFull'))
 hist=[h for h in hist if h['taken']!=TAKEN]+[new]
 for h in hist:   # recompute with the current rule: under half a unit of consumption a month = no usage
     for g,v in h['groups'].items():
@@ -74,9 +75,9 @@ $('sub').textContent='Latest snapshot taken '+fd(cur.taken)+' · '+HIST.length+'
 function age(str,ref){const m=/(\\d{2})\\/(\\d{2})\\/(\\d{4})/.exec(str);if(!m)return null;const d=new Date(+m[3],+m[1]-1,+m[2]);const t=ref||new Date(cur.taken+'T00:00:00');return Math.max(0,Math.round((t-d)/864e5));}
 function pill(a){if(a==null)return '';return a<=1?'<span class="pill p-ok">Fresh</span>':a<=3?`<span class="pill p-warn">${a} days old</span>`:`<span class="pill p-crit">${a} days old</span>`;}
 const clean=s=>s.replace(/^(INV sync|Last sync):\\s*/,'');
-function cards(inv,pba,ref,live){ $('cards').innerHTML=[['Inventory and consumption','RM_WH_Mgt › INV, MIN_ sheets',inv],['Pending PBA + PO','SBO Purchase Blanket Agreement › OPEN PBA + PO',pba]].map(([t,src,s])=>
+function cards(inv,pba,ref,live,cost){ $('cards').innerHTML=[['Inventory and consumption','RM_WH_Mgt › INV, MIN_ sheets',inv],['Pending PBA + PO','SBO Purchase Blanket Agreement › OPEN PBA + PO',pba]].concat(cost?[['Average cost','Inventory Price › Sheet1 (Inventory Audit)',cost]]:[]).map(([t,src,s])=>
  `<div class="card"><div class="t">${t} ${pill(age(s,ref))}</div><div class="note">${src}</div><div class="v">${esc(clean(s))}</div><div class="note">${live?'Source synced (read live from the sheet just now)':'Source synced at the time of the latest snapshot'}</div></div>`).join(''); }
-cards(cur.inv,cur.pba,new Date(cur.taken+'T00:00:00'),false);
+cards(cur.inv,cur.pba,new Date(cur.taken+'T00:00:00'),false,cur.cost);
 (function(){ const m=/[#&]key=([^&]+)/.exec(location.hash); if(m){ try{ sessionStorage.setItem('rmcov_key',decodeURIComponent(m[1])); }catch(e){} history.replaceState(null,'',location.pathname+location.search); } })();
 $('chk').onclick=async()=>{ const msg=$('chkMsg'), btn=$('chk');
   if(!window.SYNC_URL){ msg.textContent='Live check is not set up yet. Put the Apps Script URL in config.js (see SETUP-LIVE-SYNC.md).'; return; }
@@ -85,8 +86,8 @@ $('chk').onclick=async()=>{ const msg=$('chkMsg'), btn=$('chk');
   btn.disabled=true; msg.textContent='Asking the sheets…';
   try{ const j=await (await fetch(window.SYNC_URL+'?action=status&key='+encodeURIComponent(key))).json();
     if(!j.ok){ if(j.error==='unauthorized'){ try{ sessionStorage.removeItem('rmcov_key'); }catch(e){} msg.textContent='Wrong or missing sync key.'; } else msg.textContent='Check failed: '+j.error; return; }
-    cards(j.status.invSyncFull,j.status.pbaSyncFull,new Date(),true);
-    const newer = j.status.invSyncFull!==cur.inv || j.status.pbaSyncFull!==cur.pba;
+    cards(j.status.invSyncFull,j.status.pbaSyncFull,new Date(),true,j.status.costSyncFull);
+    const newer = j.status.invSyncFull!==cur.inv || j.status.pbaSyncFull!==cur.pba || (cur.cost && j.status.costSyncFull!==cur.cost);
     msg.textContent=newer?'The sheets have newer data than the latest snapshot. Open a dashboard and click Sync now.':'The sheets match the latest snapshot.';
   }catch(e){ msg.textContent='Check failed: '+(e.message||e); } finally{ btn.disabled=false; } };
 const G=Object.keys(cur.groups);

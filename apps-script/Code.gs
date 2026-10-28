@@ -11,10 +11,11 @@
  */
 var WH_ID = '1wFwiKAfhgkTKgL3QvKj8yn2jWyxGw55infzXfJtZXsI';   // RM_WH_Mgt
 var PBA_ID = '1uavWZvYKFIivSr4Sz8NXDUdDZuQsSNH-PI6wH3LF4kQ';  // SBO Purchase Blanket Agreement
+var AUDIT_ID = '17dwpOMvXaS3Rx1jmpX9Hf18X-74JoOLty5EapFxnbFY'; // Inventory Price (copy of the Inventory Audit tab), tab Sheet1
 
 var PLANTS = ['AC', 'PFMIS', 'BUKID', 'SOUTH', 'HOREB', 'ARGAO'];
 // plant -> its MIN_ sheet (consumption = AV W Fcasts consump x WEEKS_PER_MONTH)
-var MIN_SHEETS = { MIN_BULACAN: 'AC', MIN_ISA: 'PFMIS', MIN_HOREB: 'HOREB', MIN_ARGAO: 'ARGAO', MIN_BUKID: 'BUKID', MIN_SOUTH: 'SOUTH' };
+var MIN_SHEETS = { MIN_BULACAN: 'AC', MIN_ISA: 'PFMIS', MIN_HOREB: 'HOREB', MIN_ARGAO: 'ARGAO', MIN_BUKID: 'BUKID', MIN_SOUTH: 'SOUTH', MIN_CCPC: 'BUKID' };
 var WEEKS_PER_MONTH = 4;
 // class, label, unit, divisor from sheet units, decimals, stock decimals
 var GROUPS = [
@@ -58,23 +59,18 @@ function dateIn_(txt) {
   return m ? new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2])) : null;
 }
 
-/** Warehouse code -> plant. Quarantine (-QA) and in-transit (-IT) stock is ignored. */
-function plantOfWh_(w) {
-  w = String(w || '');
-  if (!w || /-(IT|QA)$/.test(w)) return null;
-  if (w.indexOf('AC') === 0) return 'AC';
-  if (w.indexOf('PFMIS') === 0) return 'PFMIS';
-  if (w.indexOf('BUKID') === 0 || w.indexOf('ALAE') === 0) return 'BUKID';
-  if (w.indexOf('SOUTH') === 0) return 'SOUTH';
-  if (w === 'BAC' || w.indexOf('HOREB') === 0 || w.indexOf('HBEXT') === 0) return 'HOREB';
-  if (w.indexOf('ARGAO') === 0) return 'ARGAO';
-  return null;
-}
+/** Warehouse code -> warehouse, as given by the business. Quarantine (-QA) and in-transit (-IT) codes are not counted. */
+var WH_MAP = {};
+('AC AC|ACEXT AC|ACEXT-MK AC|AC-MK AC|ACOW AC|ACOW-MK AC|AC-PD AC|ALAE BUKID|ARGAO ARGAO|ARGAO-PD ARGAO|BAC HOREB|' +
+ 'BUKID BUKID|BUKID-MK BUKID|BUKID-PD BUKID|CCPC BUKID|HBEXT HOREB|HOREB HOREB|HOREB-MK HOREB|HOREB-PD HOREB|' +
+ 'PFMIS PFMIS|PFMIS-PD PFMIS|SOUTH SOUTH|SOUTH-PD SOUTH').split('|').forEach(function (p) { var a = p.split(' '); WH_MAP[a[0]] = a[1]; });
+function plantOfWh_(w) { return w ? (WH_MAP[String(w)] || null) : null; }
 
 function status_() {
   var inv = SpreadsheetApp.openById(WH_ID).getSheetByName('INV').getRange('A2').getValue();
   var pba = SpreadsheetApp.openById(PBA_ID).getSheetByName('OPEN PBA + PO').getRange('A3').getValue();
-  return { invSyncFull: String(inv), pbaSyncFull: String(pba) };
+  var cost = SpreadsheetApp.openById(AUDIT_ID).getSheetByName('Sheet1').getRange('A2').getValue();
+  return { invSyncFull: String(inv), pbaSyncFull: String(pba), costSyncFull: String(cost) };
 }
 
 function zeroes_() { var o = {}; PLANTS.forEach(function (p) { o[p] = 0; }); return o; }
@@ -96,11 +92,24 @@ function build_() {
     if (typeof r[1] === 'number' && r[3] instanceof Date) ends[Math.round(r[1]) + '|' + code_(r[6]) + '|' + r[8]] = r[3];
   });
 
+  // Average cost per warehouse (Inventory Audit: Avg Cost, weighted by Ending Balance). Stock stays as in RM_WH_Mgt.
+  var auditRows = values(SpreadsheetApp.openById(AUDIT_ID), 'Sheet1');
+  var costSums = {};
+  auditRows.slice(4).forEach(function (r) {
+    if (!r[0]) return;
+    var p = plantOfWh_(r[4]);
+    if (p && typeof r[13] === 'number' && typeof r[15] === 'number' && r[13] > 0 && r[15] > 0) {
+      var k = r[0] + '|' + code_(r[1]) + '|' + p;
+      var a = costSums[k] || (costSums[k] = [0, 0]);
+      a[0] += r[13] * r[15]; a[1] += r[13];
+    }
+  });
+
   var minData = {};
   Object.keys(MIN_SHEETS).forEach(function (n) { minData[n] = values(wh, n); });
 
   var out = { asof: ymd_(asof), invSync: Utilities.formatDate(asof, Session.getScriptTimeZone(), 'MMM dd'),
-    invSyncFull: invSync, pbaSyncFull: pbaSync, plants: PLANTS, groups: {} };
+    invSyncFull: invSync, pbaSyncFull: pbaSync, costSyncFull: String(auditRows[1][0]), plants: PLANTS, groups: {} };
   var pbaDate = dateIn_(pbaSync);
   out.pbaSync = Utilities.formatDate(pbaDate || asof, Session.getScriptTimeZone(), 'MMM dd');
 
@@ -156,7 +165,9 @@ function build_() {
     var list = Object.keys(items).map(function (c) {
       var it = items[c], wh = {};
       Object.keys(it.wh).forEach(function (k) { if (it.wh[k]) wh[k] = round3_(it.wh[k] / div); });
-      return { code: c, name: it.name, cons: round(it.cons), stock: round(it.stock), pend: round(it.pend), stockWh: wh,
+      var cost = {};
+      PLANTS.forEach(function (p) { var a = costSums[cls + '|' + c + '|' + p]; if (a) cost[p] = Math.round(a[0] / a[1] * 10000) / 10000; });
+      return { code: c, name: it.name, cons: round(it.cons), stock: round(it.stock), pend: round(it.pend), stockWh: wh, cost: cost,
         pos: it.pos.sort(function (a, b) { return b.t - a.t; }) };
     }).filter(function (it) {
       var s = 0; PLANTS.forEach(function (p) { s += it.cons[p] + it.stock[p] + it.pend[p]; });
@@ -166,7 +177,7 @@ function build_() {
       if (an !== bn) return an ? -1 : 1;
       return an ? Number(a.code) - Number(b.code) : (a.code < b.code ? -1 : 1);
     });
-    out.groups[cls] = { label: g[1], unit: g[2], dec: g[4], stockDec: g[5], items: list };
+    out.groups[cls] = { label: g[1], unit: g[2], dec: g[4], stockDec: g[5], div: div, items: list };
   });
   return out;
 }

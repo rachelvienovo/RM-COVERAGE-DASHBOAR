@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>/*TITLE*/</title>
+<style>
+  :root{
+    --bg:#eef2ef;--panel:#ffffff;--ink:#14221c;--muted:#5a6a63;--line:#d6dfda;--line-strong:#9fb2a9;
+    --accent:#1d6a4c;--accent-soft:#e3f0ea;--pred:#7a5b00;--pred-soft:#fffbe3;--stock-bg:#e4eefa;
+    --crit:#b42318;--crit-soft:#fdecea;--warn:#a86f12;--warn-soft:#fbf1dc;--ok:#167a4a;--ok-soft:#e2f4ea;--na:#6b7a73;--na-soft:#edf1ee;
+    --bar-a:#1d6a4c;--bar-b:#8fc4ab;
+    --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+    --bg:#0e1512;--panel:#16201c;--ink:#e4ece8;--muted:#94a59d;--line:#26342e;--line-strong:#4a5f56;
+    --accent:#4cbc8b;--accent-soft:#16302a;--pred:#f0d27a;--pred-soft:#2c2813;--stock-bg:#16273a;
+    --crit:#f07b70;--crit-soft:#341a18;--warn:#e3b25e;--warn-soft:#2c2414;--ok:#55c98f;--ok-soft:#14301f;--na:#94a59d;--na-soft:#1c2823;
+    --bar-a:#4cbc8b;--bar-b:#2b5a47;color-scheme:dark}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font)}
+  .wrap{max-width:1280px;margin:0 auto;padding:16px}
+  h1{font-size:20px;margin:0}
+  .sub{color:var(--muted);font-size:12.5px;margin-top:2px}
+  header{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:flex-end;margin-bottom:14px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+  .controls{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:end}
+  .controls label{display:flex;flex-direction:column;font-size:11.5px;color:var(--muted);gap:3px}
+  input,select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line-strong);border-radius:6px;padding:5px 8px;min-height:32px}
+  input[type=number]{width:84px}
+  input[type=search]{width:190px}
+  .chk{flex-direction:row!important;align-items:center;gap:6px!important;color:var(--ink)!important;font-size:13px!important}
+  .chk input{min-height:0}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);border-radius:999px;padding:4px 11px;cursor:pointer;font:inherit;font-size:12.5px}
+  .chip[aria-pressed=true]{background:var(--accent);color:#fff;border-color:var(--accent)}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .chip[aria-pressed=true]{color:#06130d}}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .kpi .l{font-size:11.5px;color:var(--muted)}
+  .kpi .v{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums}
+  .kpi .s{font-size:11.5px;color:var(--muted)}
+  .kpi.crit .v{color:var(--crit)}.kpi.warn .v{color:var(--warn)}.kpi.ok .v{color:var(--ok)}
+  .wtiles{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+  .wtiles .kpi.crit{border-color:var(--crit)}.wtiles .kpi.warn{border-color:var(--warn)}
+  .grid2{display:grid;grid-template-columns:1fr;gap:12px}
+  h2{font-size:14px;margin:0 0 8px}
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-bottom:6px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  .scroll{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:8px}
+  table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:13px}
+  th,td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  th{position:sticky;top:0;background:var(--panel);cursor:pointer;font-size:11.5px;color:var(--muted);z-index:1;user-select:none;border-bottom:1px solid var(--line-strong)}
+  th.l,td.l{text-align:left}
+  th .ar{opacity:.5}
+  tr.main{cursor:pointer}
+  tr.main:hover td{background:var(--accent-soft)}
+  td.name{white-space:normal;min-width:170px}
+  .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600}
+  .p-crit{background:var(--crit-soft);color:var(--crit)}.p-warn{background:var(--warn-soft);color:var(--warn)}
+  .p-ok{background:var(--ok-soft);color:var(--ok)}.p-na{background:var(--na-soft);color:var(--na)}
+  .c-crit{background:var(--crit-soft);color:var(--crit);font-weight:600}.c-warn{background:var(--warn-soft);color:var(--warn);font-weight:600}.c-ok{color:var(--ok)}
+  tr.detail td{background:var(--bg);padding:10px 14px;white-space:normal}
+  .dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+  .mini th{position:static;cursor:default}
+  .note{font-size:12px;color:var(--muted)}
+  .notes li{margin-bottom:3px}
+  svg text{fill:var(--ink);font-family:var(--font)}
+  .item-mode .listonly{display:none}
+  body:not(.item-mode) .itemonly{display:none}
+  .syncbox{display:flex;flex-direction:column;align-items:flex-end;gap:3px;max-width:340px;text-align:right}
+  .back{border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);border-radius:6px;padding:5px 12px;cursor:pointer;font:inherit}
+  .wh h3{margin:0 0 6px;font-size:14px}
+  td.neg{background:var(--crit-soft);color:var(--crit);font-weight:600}
+  td.pos0{color:var(--ok)}
+  tr.eom td{border-top:2px solid var(--line-strong);font-weight:600}
+  tr.stockrow td{background:var(--stock-bg)}
+  tr.pred td{background:var(--pred-soft);color:var(--pred);font-weight:600}
+  .posbox{border-top:4px solid var(--accent);background:linear-gradient(var(--accent-soft),var(--panel) 90px)}
+  .posbox h2{color:var(--accent);font-size:15px}
+  table.pos th{background:var(--accent-soft);color:var(--accent);border-bottom:2px solid var(--accent);font-weight:700}
+  table.pos tbody tr:nth-child(even) td{background:color-mix(in srgb,var(--accent-soft) 45%,var(--panel))}
+  table.pos tbody tr:hover td{background:var(--accent-soft)}
+  table.pos td.l{font-weight:650;color:var(--accent)}
+  table.pos td.c-crit{background:var(--crit-soft)!important}table.pos td.c-warn{background:var(--warn-soft)!important}
+  table.pos tr.eom td{background:var(--accent-soft)!important;color:var(--accent);border-top:2px solid var(--accent)}
+  .empty{padding:20px;color:var(--muted);text-align:center}
+  @media (min-width:900px){.grid2{grid-template-columns:5fr 4fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>/*TITLE*/</h1>
+    <div class="sub" id="asof"></div>
+  </div>
+  <div class="sub" id="unitnote"></div>
+  <nav class="sub">/*NAV*/</nav>
+  <div class="syncbox"><button class="back" id="syncBtn" title="Re-read the Google Sheets now">⟳ Sync now</button><div class="note" id="syncMsg"></div></div>
+</header>
+
+<div class="panel controls">
+  <label>Item<input type="text" id="itemPick" list="itemList" placeholder="Choose or type an item…" autocomplete="off" style="min-width:280px"><datalist id="itemList"></datalist></label>
+  <label class="listonly">Search<input type="search" id="q" placeholder="code or material"></label>
+  <label class="listonly">Warehouse
+    <select id="plant"></select>
+  </label>
+  <label>Critical below (days)<input type="number" id="tCrit" value="30" min="1"></label>
+  <label>Watch below (days)<input type="number" id="tWarn" value="60" min="1"></label>
+  <label>Target cover (months)<input type="number" id="tTarget" value="3" min="0.5" step="0.5"></label>
+  <label class="chk"><input type="checkbox" id="exExp"> Exclude expired PBAs</label>
+  <label class="itemonly">Table view
+    <select id="timing"><option value="fifo">FIFO: oldest PBA consumed first</option><option value="deliv">Deliveries at PBA end date</option></select>
+  </label>
+  <div class="chips listonly" id="status" role="group" aria-label="Status filter"></div>
+</div>
+
+<div id="listView">
+<div class="kpis" id="kpis"></div>
+
+<div class="grid2">
+  <div class="panel">
+    <h2>Days of cover — 10 lowest</h2>
+    <div class="legend"><span><i style="background:var(--bar-a)"></i>Warehouse stock</span><span><i style="background:var(--bar-b)"></i>+ pending PBA/PO</span><span id="capNote"></span></div>
+    <div id="chart"></div>
+  </div>
+  <div class="panel">
+    <h2 id="gapsTitle">Where the gaps are</h2>
+    <div id="gaps" class="note"></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2><span id="title2">Position</span> <span class="note" id="rowcount"></span></h2>
+  <div class="scroll"><table id="tbl"></table></div>
+  <p class="note">Click a row to open the item view with a table for each warehouse.</p>
+</div>
+
+</div>
+<div id="itemView"></div>
+
+<div class="panel">
+  <h2>Basis and caveats</h2>
+  <ul class="note notes">
+    <li><b>Stock</b>: RM_WH_Mgt › INV (on-hand at last sync; /*STOCKNOTE*/). Includes plant, -PD (production) and EXT/ALAE warehouses; excludes -IT and -QA locations.</li>
+    <li><b>Consumption</b>: RM_WH_Mgt › each plant's MIN_ sheet, <i>AV W Fcasts consump</i> (average weekly forecast consumption) × 4 = monthly. Plants map to warehouses as Bulacan → AC, Isabela → PFMIS, Bukidnon → BUKID, South → SOUTH, plus HOREB and ARGAO. CCPC is not included. Sub-warehouses roll up to their plant (AC-PD and ACEXT to AC, BUKID-PD and ALAE to BUKID, and so on).</li>
+    <li><b>Pending</b>: SBO Purchase Blanket Agreement › OPEN PBA + PO, balance quantity per warehouse. This is the unreceived balance of PBAs plus POs; no ETA is available, so pending is treated as arriving in full. PBAs past their end date are flagged and can be excluded.</li>
+    <li><b>Shortfall to target</b> = target months × monthly consumption − stock − pending (already-ordered quantity is netted out). Targets and thresholds above are editable; the defaults are placeholders, not company policy.</li>
+    /*PKGNOTE*/<li>Days of cover treat each warehouse separately; stock is not transferred between plants in this model.</li>
+  </ul>
+</div>
+</div>
+
+<script src="config.js"></script>
+<script>
+const DATA = /*DATA*/;
+const PL = DATA.plants;
+const GROUPS = DATA.groups;
+const UNITNAME = {t:'tonnes',kg:'kilograms',pcs:'pieces'};
+let ASOF = new Date(DATA.asof+'T00:00:00');
+const $ = id => document.getElementById(id);
+const fmt = (n,d=0) => n==null||!isFinite(n) ? '–' : n.toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d});
+const fmtDate = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function setHeader(){ $('asof').textContent = 'As of '+fmtDate(ASOF)+' · stock & consumption: RM_WH_Mgt (synced '+DATA.invSync+') · pending: OPEN PBA + PO (synced '+DATA.pbaSync+')'; }
+setHeader();
+
+const state = {sort:'daysW', dir:1, status:'all', open:null, group:Object.keys(GROUPS)[0]};
+const G = () => GROUPS[state.group];
+$('plant').innerHTML = '<option value="ALL">All warehouses</option>'+PL.map(p=>`<option>${p}</option>`).join('');
+const STAT = [['all','All'],['crit','Critical'],['warn','Watch'],['ok','OK'],['na','No usage']];
+$('status').innerHTML = STAT.map(([k,l])=>`<button class="chip" data-k="${k}" aria-pressed="${k==='all'}">${l}</button>`).join('');
+$('status').onclick = e => { const b=e.target.closest('button'); if(!b) return; state.status=b.dataset.k;
+  document.querySelectorAll('#status .chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.k===state.status)); render(); };
+['q','plant','tCrit','tWarn','tTarget','exExp'].forEach(id=>$(id).addEventListener('input',render));
+
+function pendingFor(it,plants,exExp){
+  const by = {}; PL.forEach(p=>by[p]=0);
+  it.pos.forEach(o=>{ if(exExp && o.expired) return; by[o.plant]+=o.t; });
+  return by;
+}
+function calc(it,scope,exExp,tC,tW,tT){
+  const ps = scope==='ALL' ? PL : [scope];
+  const pend = pendingFor(it,ps,exExp);
+  const sum = (o)=>ps.reduce((a,p)=>a+(o[p]||0),0);
+  const cons=sum(it.cons), stock=sum(it.stock), pe=ps.reduce((a,p)=>a+pend[p],0);
+  const daily = Math.round(cons)>0 ? cons/30 : 0;   // under half a unit a month counts as no usage
+  const daysW = daily>0 ? stock/daily : null;
+  const daysP = daily>0 ? (stock+pe)/daily : null;
+  let st;
+  if(daily<=0) st='na'; else if(daysW<tC) st='crit'; else if(daysW<tW) st='warn'; else st='ok';
+  const per = {};
+  PL.forEach(p=>{ const d=it.cons[p]/30; per[p]={cons:it.cons[p],stock:it.stock[p],pend:pend[p],
+    dW:d>0?it.stock[p]/d:null, dP:d>0?(it.stock[p]+pend[p])/d:null}; });
+  return {it,cons,stock,pend:pe,daysW,daysP,months:daily>0?daysP/30:null,
+    runout: daysP!=null ? new Date(ASOF.getTime()+daysP*864e5) : null,
+    gap: Math.max(0,tT*cons-stock-pe), st, per};
+}
+const cls = (d,tC,tW) => d==null?'':d<tC?'c-crit':d<tW?'c-warn':'c-ok';
+
+function render(){
+  const g=G();
+  $('unitnote').textContent = g.label+' items · '+UNITNAME[g.unit]+' · days of cover = stock ÷ (monthly consumption ÷ 30)';
+  $('title2').textContent = 'Position of '+g.label.toLowerCase()+' materials';
+  const scope=$('plant').value, exExp=$('exExp').checked;
+  const tC=+$('tCrit').value||30, tW=Math.max(+$('tWarn').value||60,tC), tT=+$('tTarget').value||3;
+  const q=$('q').value.trim().toLowerCase();
+  let rows = G().items.map(it=>calc(it,scope,exExp,tC,tW,tT))
+    .filter(r=>r.cons+r.stock+r.pend>0);
+  const counts = {crit:0,warn:0,ok:0,na:0};
+  rows.forEach(r=>counts[r.st]++);
+  // KPIs
+  const active = rows.filter(r=>r.st!=='na');
+  const tot = k => rows.reduce((a,r)=>a+r[k],0);
+  const needing = rows.filter(r=>r.gap>0);
+  $('kpis').innerHTML = [
+    ['',(g.label==='Macro'?'Materials':'Packaging items')+' in view',fmt(rows.length),fmt(active.length)+' with consumption'],
+    ['crit','Critical',fmt(counts.crit),'stock cover < '+tC+' days'],
+    ['warn','Watch',fmt(counts.warn),tC+'–'+tW+' days'],
+    ['','Current stock',fmt(tot('stock'))+' '+g.unit,'warehouse on-hand'],
+    ['','Pending PBA/PO',fmt(tot('pend'))+' '+g.unit,'unreceived balance'],
+    ['','Shortfall to '+tT+' mo',fmt(tot('gap'))+' '+g.unit,fmt(needing.length)+' materials short']
+  ].map(([c,l,v,s])=>`<div class="kpi ${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+
+  // filters
+  let view = rows.filter(r=> (state.status==='all'||r.st===state.status) &&
+    (!q || (r.it.code+' '+r.it.name).toLowerCase().includes(q)));
+  // sort
+  const key = {code:r=>+r.it.code,name:r=>r.it.name,cons:r=>r.cons,stock:r=>r.stock,pend:r=>r.pend,
+    daysW:r=>r.daysW,daysP:r=>r.daysP,months:r=>r.months,gap:r=>r.gap,runout:r=>r.runout&&+r.runout}[state.sort];
+  view.sort((a,b)=>{ const x=key(a),y=key(b);
+    if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1;
+    return (x<y?-1:x>y?1:0)*state.dir; });
+  drawChart(rows,tC,tW);
+  if(KEY_ITEMS[state.group]) drawKey(rows,tC,tW,tT); else drawGaps(rows,scope,tT);
+  drawTable(view,tC,tW);
+}
+
+function drawChart(rows,tC,tW){
+  const data = rows.filter(r=>r.daysW!=null && Math.round(r.cons)>0).sort((a,b)=>a.daysW-b.daysW).slice(0,10);
+  if(!data.length){ $('chart').innerHTML='<div class="empty">No consumption data</div>'; return; }
+  const CAP=180; const W=560, rowH=24, L=200, R=60, H=data.length*rowH+24;
+  const x = d => L+(Math.min(d,CAP)/CAP)*(W-L-R);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Days of cover by material, lowest first">`;
+  [0,30,60,90,120,150,180].forEach(t=>{ s+=`<line x1="${x(t)}" x2="${x(t)}" y1="0" y2="${H-18}" stroke="var(--line)"/><text x="${x(t)}" y="${H-5}" font-size="10" text-anchor="middle" fill="var(--muted)">${t}</text>`; });
+  s+=`<line x1="${x(tC)}" x2="${x(tC)}" y1="0" y2="${H-18}" stroke="var(--crit)" stroke-dasharray="3 3"/>`;
+  data.forEach((r,i)=>{ const y=i*rowH+4;
+    const nm = r.it.name.length>30? r.it.name.slice(0,29)+'…' : r.it.name;
+    s+=`<text x="${L-6}" y="${y+13}" font-size="11.5" text-anchor="end"><title>${esc(r.it.name)}</title>${esc(nm)}</text>`;
+    const pw = x(r.daysP)-L, sw = x(r.daysW)-L;
+    s+=`<rect x="${L}" y="${y}" width="${Math.max(pw,0)}" height="16" rx="2" fill="var(--bar-b)"><title>${esc(r.it.name)}: ${fmt(r.daysP)} days incl. pending</title></rect>`;
+    s+=`<rect x="${L}" y="${y}" width="${Math.max(sw,1)}" height="16" rx="2" fill="var(--bar-a)"><title>${esc(r.it.name)}: ${fmt(r.daysW)} days warehouse stock</title></rect>`;
+    s+=`<text x="${L+Math.max(pw,sw)+4}" y="${y+12}" font-size="11" fill="var(--muted)">${fmt(r.daysW)}${r.daysP>CAP?' ▸':''}</text>`;
+  });
+  $('chart').innerHTML = s+'</svg>';
+  $('capNote').textContent = 'Axis capped at '+CAP+' days · dashed line = critical threshold · top 10 lowest shown, items with no consumption are left out';
+}
+
+// Dashboards that show a fixed list of major commodities instead of the generic gaps panel
+const KEY_ITEMS = {MACRO:[['10100','Corn Yellow (Class A)'],['10000','Feed Wheat'],['30000','Soybean Meal'],['11420','Bakery Meal'],['11270','Corn Fermented Protein']]};
+function drawKey(rows,tC,tW,tT){
+  $('gapsTitle').textContent='Major commodities';
+  const u=G().unit, by=Object.fromEntries(rows.map(r=>[r.it.code,r]));
+  const lab={crit:'Critical',warn:'Watch',ok:'OK',na:'No usage'};
+  let h='<div class="scroll"><table class="mini"><thead><tr><th class="l">Commodity</th><th>Stock ('+u+')</th><th>Use ('+u+'/mo)</th><th>Cover (d)</th><th>+ pending (d)</th><th>Runs out (incl. pending)</th></tr></thead><tbody>';
+  KEY_ITEMS[state.group].forEach(([code,name])=>{ const r=by[code];
+    if(!r){ h+=`<tr><td class="l">${esc(name)}</td><td colspan="5" class="note">No data</td></tr>`; return; }
+    h+=`<tr class="main" data-c="${code}" style="cursor:pointer"><td class="l"><b>${esc(name)}</b> <span class="pill p-${r.st}">${lab[r.st]}</span></td><td>${fmt(r.stock,sd())}</td><td>${fmt(r.cons,dec())}</td>
+      <td class="${cls(r.daysW,tC,tW)}">${fmt(r.daysW,1)}</td><td>${fmt(r.daysP,1)}</td><td>${r.runout?fmtDate(r.runout):'–'}</td></tr>`; });
+  h+='</tbody></table></div><p class="note" style="margin-top:8px">Click a commodity to open its item view. Corn Yellow is item 10100 and Bakery Meal is imported bakery meal (11420); Corn Yellow Class B, Bread Meal and Local Bakery Meal are separate items. Follows the warehouse filter.</p>';
+  $('gaps').innerHTML=h;
+}
+function drawGaps(rows,scope,tT){
+  $('gapsTitle').textContent='Where the gaps are';
+  const g = rows.filter(r=>r.gap>0).sort((a,b)=>b.gap-a.gap).slice(0,8);
+  const ps = scope==='ALL'?PL:[scope];
+  // plant-level critical counts
+  let h='';
+  if(g.length){
+    h+=`<table class="mini"><tr><th class="l">Largest shortfall to ${tT} months</th><th>Short (${G().unit})</th><th>Cover + pending (days)</th></tr>`+
+      g.map(r=>`<tr><td class="l">${esc(r.it.name)}</td><td>${fmt(r.gap)}</td><td>${fmt(r.daysP)}</td></tr>`).join('')+'</table>';
+  } else h+='<div class="empty">Every material meets the target cover.</div>';
+  const crit = rows.filter(r=>r.st==='crit' && r.daysP!=null && r.daysP<r.daysW+1);
+  if(crit.length) h+=`<p><b>Critical with nothing on order:</b> ${crit.map(r=>esc(r.it.name)).join(', ')}.</p>`;
+  const cov = rows.filter(r=>r.st==='crit' && r.daysP>=+$('tWarn').value);
+  if(cov.length) h+=`<p><b>Low stock but covered by pending:</b> ${cov.slice(0,10).map(r=>esc(r.it.name)).join(', ')}. Delivery timing is the risk (no ETA in source).</p>`;
+  $('gaps').innerHTML=h;
+}
+
+function drawTable(view,tC,tW){
+  const cols=[['code','Code','l'],['name','Material','l'],['cons','Monthly cons. ('+G().unit+')'],['stock','Stock ('+G().unit+')'],['pend','Pending ('+G().unit+')'],
+    ['daysW','DIO whse (d)'],['daysP','DIO + pending (d)'],['months','Months cover'],['runout','Run-out date (incl. pending)'],['gap','Short to target ('+G().unit+')'],['st','Status','l']];
+  const ar = k => state.sort===k?(state.dir>0?' ▲':' ▼'):'';
+  let h='<thead><tr>'+cols.map(([k,l,a])=>`<th class="${a||''}" data-k="${k}">${l}<span class="ar">${ar(k)}</span></th>`).join('')+'</tr></thead><tbody>';
+  const lab={crit:'Critical',warn:'Watch',ok:'OK',na:'No usage'};
+  view.forEach(r=>{
+    h+=`<tr class="main" data-c="${r.it.code}"><td class="l">${r.it.code}</td><td class="l name">${esc(r.it.name)}</td>
+      <td>${fmt(r.cons)}</td><td>${fmt(r.stock,G().stockDec)}</td><td>${fmt(r.pend)}</td>
+      <td class="${cls(r.daysW,tC,tW)}">${fmt(r.daysW,1)}</td><td>${fmt(r.daysP,1)}</td><td>${fmt(r.months,2)}</td>
+      <td>${r.runout?fmtDate(r.runout):'–'}</td><td>${r.gap>0?fmt(r.gap):'–'}</td>
+      <td class="l"><span class="pill p-${r.st}">${lab[r.st]}</span></td></tr>`;
+    if(state.open===r.it.code) h+=`<tr class="detail"><td colspan="${cols.length}">${detail(r,tC,tW)}</td></tr>`;
+  });
+  if(!view.length) h+=`<tr><td colspan="${cols.length}" class="empty">No materials match.</td></tr>`;
+  $('tbl').innerHTML=h+'</tbody>';
+  $('rowcount').textContent='· '+view.length+' shown';
+}
+
+function detail(r,tC,tW){
+  const ps = PL.filter(p=>r.per[p].cons+r.per[p].stock+r.per[p].pend>0);
+  let h='<div class="dgrid"><div><b>By plant</b><table class="mini"><tr><th class="l">Plant</th><th>Cons. ('+G().unit+'/mo)</th><th>Stock ('+G().unit+')</th><th>Pending ('+G().unit+')</th><th>DIO whse</th><th>DIO + pend.</th></tr>'+
+    ps.map(p=>{const x=r.per[p];return `<tr><td class="l">${p}</td><td>${fmt(x.cons)}</td><td>${fmt(x.stock,G().stockDec)}</td><td>${fmt(x.pend)}</td><td class="${cls(x.dW,tC,tW)}">${fmt(x.dW,1)}</td><td>${fmt(x.dP,1)}</td></tr>`}).join('')+'</table></div>';
+  const exExp=$('exExp').checked, scope=$('plant').value;
+  const pos=r.it.pos.filter(o=>(scope==='ALL'||o.plant===scope)&&!(exExp&&o.expired)).slice(0,25);
+  h+='<div><b>Open PBA/PO lines</b>'+(pos.length?'<table class="mini"><tr><th class="l">Vendor</th><th>PBA</th><th class="l">Whse</th><th>Balance ('+G().unit+')</th><th class="l">Created</th><th class="l">Ends</th></tr>'+
+    pos.map(o=>`<tr><td class="l">${esc(o.vendor)}</td><td>${o.pba}</td><td class="l">${esc(o.wh)}</td><td>${fmt(o.t,G().stockDec)}</td><td class="l">${o.created}</td><td class="l">${o.end||'–'}${o.expired?' <span class="pill p-crit">expired</span>':''}</td></tr>`).join('')+'</table>':'<div class="note">Nothing pending.</div>')+'</div></div>';
+  return h;
+}
+
+$('gaps').addEventListener('click',e=>{ const tr=e.target.closest('tr.main'); if(tr) location.hash='item='+encodeURIComponent(tr.dataset.c); });
+$('tbl').addEventListener('click',e=>{
+  const th=e.target.closest('th'); if(th){ const k=th.dataset.k; if(state.sort===k) state.dir*=-1; else {state.sort=k; state.dir=(k==='name'||k==='code'||k==='st')?1:(k==='daysW'||k==='daysP'||k==='months'||k==='runout')?1:-1;} render(); return; }
+  const tr=e.target.closest('tr.main'); if(tr){ location.hash='item='+encodeURIComponent(tr.dataset.c); }
+});
+
+// ---------- per-item view ----------
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const NM = 3;   // months shown: the current month and the next two
+function months(){ const out=[]; let y=ASOF.getFullYear(), m=ASOF.getMonth();
+  for(let i=0;i<NM;i++){ out.push(MON[m]+' '+String(y).slice(2)); m++; if(m>11){m=0;y++;} } return out; }
+function monthIdx(o){   // months from the as-of month to the PBA end month; null = due now
+  if(o.expired || !o.end) return null;
+  const e=new Date(o.end+'T00:00:00'), k=(e.getFullYear()-ASOF.getFullYear())*12+e.getMonth()-ASOF.getMonth();
+  return k<0?null:k;
+}
+function schedule(o,mode){
+  const arr=new Array(NM).fill(0); let later=0, k=monthIdx(o);
+  if(mode==='now' || k===null){ arr[0]=o.t; return {arr,later}; }   // available now, or past its end date
+  if(mode==='end'){ if(k<NM) arr[k]=o.t; else later=o.t; }
+  else { const share=o.t/(k+1); for(let i=0;i<=k;i++){ if(i<NM) arr[i]+=share; else later+=share; } }
+  return {arr,later};
+}
+const dec = () => G().dec;
+const sd = () => G().stockDec;
+function itemView(code){
+  const it=G().items.find(x=>x.code===code); if(!it) return false;
+  const tC=+$('tCrit').value||30, tW=Math.max(+$('tWarn').value||60,tC);
+  const exExp=$('exExp').checked, fifo=$('timing').value==='fifo', mode='end', u=G().unit, ML=months();
+  const pos=it.pos.filter(o=>!(exExp&&o.expired));
+  const whs=PL.filter(p=>it.cons[p]+it.stock[p]+pos.some(o=>o.plant===p)>0 || false)
+    .filter(p=>it.cons[p]>0||it.stock[p]>0||pos.some(o=>o.plant===p));
+  // per-warehouse model
+  const model=whs.map(p=>{
+    const lines=pos.filter(o=>o.plant===p).sort((a,b)=>a.created<b.created?-1:a.created>b.created?1:a.pba-b.pba)
+      .map(o=>({o,...schedule(o,mode)}));
+    const cons=it.cons[p], stock=it.stock[p];
+    const pend=lines.reduce((a,l)=>a+l.o.t,0);
+    const inc=new Array(NM).fill(0); lines.forEach(l=>l.arr.forEach((v,i)=>inc[i]+=v));
+    const eom=[]; let layers=null, shortfall=null;
+    if(fifo){
+      // Stock is used first. When ending inventory would go negative, the next PBA (oldest first, by creation date
+      // then PBA number) is pulled in and used. Ending inventory counts only stock and PBAs already pulled.
+      layers=[{stock:true,qty:stock,pulled:0,used:0,use:new Array(NM).fill(0),done:-1}]
+        .concat(lines.map(l=>({l,qty:l.o.t,pulled:-1,used:0,use:new Array(NM).fill(0),done:-1})));
+      let backlog=0;
+      for(let i=0;i<NM;i++){
+        let need=cons+backlog;
+        for(const ly of layers){ if(need<=1e-9) break;
+          if(ly.pulled<0) ly.pulled=i;                       // next PBA is pulled in only because the inventory ran short
+          const take=Math.min(ly.qty-ly.used,need);
+          if(take>1e-9){ ly.used+=take; ly.use[i]=take; need-=take; if(ly.used>=ly.qty-1e-9&&ly.done<0) ly.done=i; } }
+        backlog=Math.max(0,need);
+        eom.push(layers.reduce((a,ly)=>a+(ly.pulled>=0?ly.qty-ly.used:0),0)-backlog); }
+      layers.forEach(ly=>{ ly.left=Math.max(0,ly.qty-ly.used); });
+    } else { let prev=stock; for(let i=0;i<NM;i++){ prev=prev+inc[i]-cons; eom.push(prev); } }
+    const pw=lines.filter(l=>l.o.price>0), pt=pw.reduce((a,l)=>a+l.o.t,0);
+    const avgP=pt>0?pw.reduce((a,l)=>a+l.o.t*l.o.price,0)/pt:null;
+    const d=cons/30;
+    return {p,lines,layers,shortfall,cons,stock,inc,eom,pend,avgP,dW:d>0?stock/d:null,dP:d>0?(stock+pend)/d:null,
+      firstNeg:eom.findIndex(v=>v<0), sub:it.stockWh?Object.entries(it.stockWh).filter(([w])=>plantOfWh(w)===p):[]};
+  });
+  const tot=k=>model.reduce((a,m)=>a+m[k],0);
+  const tcons=tot('cons'), tstock=tot('stock'), tpend=tot('pend');
+  let h=`<div class="panel"><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><button class="back" id="back">← All items</button>
+    
+    <div><h2 style="font-size:17px;margin:0">${esc(it.name)} <span class="note">${esc(it.code)}</span></h2><div class="note">${G().label} · ${UNITNAME[u]} · as of ${fmtDate(ASOF)}</div></div></div></div>`;
+  // summary tiles
+  const tT=+$('tTarget').value||3, ST=d=>d==null?'na':d<tC?'crit':d<tW?'warn':'ok', SL={crit:'Critical',warn:'Watch',ok:'OK',na:'No usage'};
+  const tdW=Math.round(tcons)>0?tstock/(tcons/30):null, tdP=Math.round(tcons)>0?(tstock+tpend)/(tcons/30):null, tgap=model.reduce((s,m)=>s+Math.max(0,tT*m.cons-m.stock-m.pend),0);   // per warehouse: stock is not moved between plants
+  const ro=tdP!=null?fmtDate(new Date(ASOF.getTime()+tdP*864e5)):'–';
+  h+=`<div class="kpis">`+[
+    ['','Total stock',fmt(tstock,sd())+' '+u,'across '+model.length+' warehouse'+(model.length>1?'s':'')],
+    ['','Pending PBA/PO',fmt(tpend,sd())+' '+u,'unreceived balance'],
+    ['','Monthly consumption',fmt(tcons,dec())+' '+u,'avg weekly forecast × 4'],
+    [ST(tdW),'Days of cover (stock)',tdW!=null?fmt(tdW,1)+' d':'–',SL[ST(tdW)]],
+    ['','Cover incl. pending',tdP!=null?fmt(tdP,1)+' d':'–','runs out about '+ro],
+    [tgap>0?'warn':'ok','Short to '+tT+' months',tgap>0?fmt(tgap,sd())+' '+u:'None','sum of warehouse shortfalls']
+  ].map(([c,l,v,s])=>`<div class="kpi ${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('')+`</div>`;
+  h+=`<div class="panel"><h2>Projected end-of-month stock, all warehouses</h2><div class="note" style="margin-bottom:6px">${fifo?'FIFO, next PBA pulled in only when inventory would go negative':'Deliveries at PBA end date'}}. Values in ${UNITNAME[u]}. Click a warehouse in the legend to hide or show it.</div><div id="projBox"></div></div>`;
+  // summary by warehouse
+  h+=`<div class="panel posbox"><h2>Position by warehouse</h2><div class="scroll"><table class="pos"><thead><tr><th class="l">Warehouse</th><th>Consumption (${u}/mo)</th><th>Stock (${u})</th><th>Pending (${u})</th><th>Avg pending price</th><th>DIO whse (d)</th><th>DIO + pending (d)</th><th>Cover situation</th></tr></thead><tbody>`+
+   model.map(m=>`<tr><td class="l">${m.p}</td><td>${fmt(m.cons,dec())}</td><td>${fmt(m.stock,sd())}</td><td>${fmt(m.pend,sd())}</td><td>${m.avgP!=null?fmt(m.avgP,2):'–'}</td>
+     <td class="${cls(m.dW,tC,tW)}">${fmt(m.dW,1)}</td><td>${fmt(m.dP,1)}</td><td>${m.dP!=null?fmtDate(new Date(ASOF.getTime()+m.dP*864e5)):'–'}</td></tr>`).join('')+
+   `<tr class="eom"><td class="l">TOTAL</td><td>${fmt(tcons,dec())}</td><td>${fmt(tstock,sd())}</td><td>${fmt(tpend,sd())}</td><td></td><td></td><td></td><td></td></tr></tbody></table></div>
+   <p class="note">Consumption is recorded per plant, so a warehouse's days of cover use its plant's consumption. Sub-warehouses (e.g. AC-PD, ACEXT) are shown inside each table below.</p></div>`;
+  // one table per warehouse
+  model.forEach(m=>{
+    const subTxt=m.sub.length?m.sub.sort().map(([w,v])=>`${w} ${fmt(v,sd())}`).join(' · '):'';
+    const fx=fifo?9:7;
+    h+=`<div class="panel wh"><h3>${m.p}</h3><div class="note" style="margin-bottom:6px">Stock ${fmt(m.stock,sd())} ${u}${subTxt?' ('+subTxt+')':''} · consumption ${fmt(m.cons,dec())} ${u}/mo · pending ${fmt(m.pend,sd())} ${u}</div><div class="scroll"><table class="mini"><thead><tr>
+      <th class="l">Supplier</th><th>PBA no.</th><th class="l">PO date</th><th class="l">Whse</th><th>Pending price</th><th>Balance (${u})</th><th class="l">PBA ends</th>${fifo?'<th class="l">Pulled in</th><th class="l">Used up</th>':''}${ML.map(x=>`<th>${x}</th>`).join('')}<th>${fifo?'Left':'Later'}</th></tr></thead><tbody>`;
+    const dn=ly=>ly.qty<=0?'–':ly.done>=0?ML[ly.done]:'after '+ML[NM-1];
+    if(fifo){
+      const sl=m.layers[0];
+      h+=`<tr class="stockrow"><td class="l"><b>On-hand stock</b></td><td></td><td class="l"></td><td class="l"></td><td></td><td>${fmt(sl.qty,sd())}</td><td class="l"></td><td class="l">on hand</td><td class="l">${dn(sl)}</td>${ML.map((x,i)=>`<td>${sl.pulled===i?fmt(sl.qty,sd()):''}</td>`).join('')}<td>${sl.left>1e-9?fmt(sl.left,sd()):''}</td></tr>`;
+    }
+    m.lines.forEach((l,k)=>{ const o=l.o, ly=fifo?m.layers[k+1]:null;
+      h+=`<tr><td class="l">${esc(o.vendor)}</td><td>${o.pba}</td><td class="l">${o.created}</td><td class="l">${esc(o.wh)}</td><td>${o.price>0?fmt(o.price,2):'–'}</td><td>${fmt(o.t,sd())}</td>
+        <td class="l">${o.end||'–'}${o.expired?' <span class="pill p-crit">expired</span>':''}</td>${fifo?`<td class="l">${ly.pulled>=0?ML[ly.pulled]:'not needed'}</td><td class="l">${dn(ly)}</td>`:''}${fifo?ML.map((x,i)=>`<td>${ly.pulled===i?fmt(ly.qty,sd()):''}</td>`).join(''):l.arr.map(v=>`<td>${v?fmt(v,sd()):''}</td>`).join('')}<td>${fifo?(ly.left>1e-9?fmt(ly.left,sd()):''):(l.later?fmt(l.later,sd()):'')}</td></tr>`; });
+    if(!m.lines.length) h+=`<tr><td class="l" colspan="${fx+1+NM}"><span class="note">Nothing pending for this warehouse.</span></td></tr>`;
+    h+=`<tr class="pred"><td class="l" colspan="${fx}">Predicted consumption</td>${ML.map(()=>`<td>${fmt(m.cons,dec())}</td>`).join('')}<td></td></tr>`;
+    h+=`<tr class="eom"><td class="l" colspan="${fx}">END OF MONTH</td>${m.eom.map(v=>`<td class="${v<0?'neg':''}">${fmt(v,sd())}</td>`).join('')}<td></td></tr></tbody></table></div>
+      ${m.firstNeg>=0?`<p class="note"><b>Runs out in ${ML[m.firstNeg]}</b> ${fifo?'once on-hand stock and every pending PBA are used up':'on the current PBAs (arriving at their end date)'}.</p>`:'<p class="note">Stays positive through '+ML[NM-1]+'.</p>'}</div>`;
+  });
+  h+=fifo?`<p class="note">FIFO view: each month's predicted consumption is taken from on-hand stock first. When ending inventory would go negative, the next PBA (oldest first, by creation date then PBA number) is pulled in and used, and its full balance is shown in the month it is pulled in (not split across months). END OF MONTH counts only on-hand stock and PBAs already pulled in; PBAs not yet pulled are not inventory. A full month is charged each month, as in the cover report. Negative values mean stock and every PBA are used up.</p>`:`<p class="note">End of month = previous month end + deliveries − predicted consumption (a full month is charged each month, as in the cover report). The pending sheet has no ETAs, so each PBA is placed at its end date; PBAs past their end date are placed in the current month. Negative values are shortfall.</p>`;
+  $('itemView').innerHTML=h; initProj(model,ML,u); $('back').onclick=()=>{ location.hash=''; };
+  return true;
+}
+function plantOfWh(w){ if(/-(IT|QA)$/.test(w)) return null;
+  if(w.startsWith('AC')) return 'AC'; if(w.startsWith('PFMIS')) return 'PFMIS'; if(w.startsWith('BUKID')||w.startsWith('ALAE')) return 'BUKID';
+  if(w.startsWith('SOUTH')) return 'SOUTH'; if(w==='BAC'||w.startsWith('HOREB')||w.startsWith('HBEXT')) return 'HOREB';
+  if(w.startsWith('ARGAO')) return 'ARGAO'; return null; }
+const COL=['#1d6a4c','#c58a1c','#2f6fb0','#b4468a','#7a5ad0','#d2553f'];
+const hiddenPl=new Set();
+function niceTicks(lo,hi,n){
+  const raw=(hi-lo)/n||1, p=Math.pow(10,Math.floor(Math.log10(raw))), f=raw/p;
+  const step=(f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p;
+  const a=Math.floor(lo/step)*step, z=Math.ceil(hi/step)*step, out=[];
+  for(let v=a;v<=z+step/2;v+=step) out.push(Math.round(v/step)*step);
+  return out;
+}
+function initProj(model,ML,u){
+  const box=$('projBox'); if(!box) return;
+  const W=900,H=340,L=66,R=12,T=18,B=34;
+  const draw=()=>{
+    const vis=model.filter(m=>!hiddenPl.has(m.p)), k=Math.max(vis.length,1);
+    const col=m=>COL[PL.indexOf(m.p)%COL.length];
+    const all=vis.flatMap(m=>m.eom).concat([0]);
+    const ticks=niceTicks(Math.min(...all),Math.max(...all),5), lo=ticks[0], hi=ticks[ticks.length-1];
+    const y=v=>T+(1-(v-lo)/(hi-lo))*(H-T-B), gw=(W-L-R)/NM, bw=Math.min(46,gw*0.84/k), y0=y(0);
+    let s=`<div class="legend" style="margin-bottom:4px">${model.map(m=>`<span data-p="${m.p}" style="cursor:pointer;${hiddenPl.has(m.p)?'opacity:.35;text-decoration:line-through':''}"><i style="background:${col(m)}"></i>${m.p}</span>`).join('')}</div>`;
+    s+=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Projected end-of-month stock by warehouse" style="display:block">`;
+    if(lo<0) s+=`<rect x="${L}" y="${y0}" width="${W-L-R}" height="${y(lo)-y0}" fill="var(--crit-soft)" opacity=".7"/><text x="${L+6}" y="${y(lo)-6}" font-size="10.5" fill="var(--crit)">Shortfall</text>`;
+    ticks.forEach(v=>{ s+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-8}" y="${y(v)+4}" font-size="11" text-anchor="end" fill="var(--muted)">${fmt(v,0)}</text>`; });
+    s+=`<line x1="${L}" x2="${W-R}" y1="${y0}" y2="${y0}" stroke="var(--line-strong)" stroke-width="1.5"/>`;
+    ML.forEach((l,i)=>{ const gx=L+gw*i+(gw-bw*k)/2;
+      s+=`<text x="${L+gw*(i+.5)}" y="${H-10}" font-size="12" font-weight="600" text-anchor="middle" fill="var(--ink)">${l}</text>`;
+      vis.forEach((m,j)=>{ const v=m.eom[i], yy=y(v), x=gx+bw*j, neg=v<0;
+        s+=`<rect x="${x+1}" y="${Math.min(yy,y0)}" width="${bw-2}" height="${Math.max(Math.abs(yy-y0),1.5)}" rx="2" fill="${col(m)}"><title>${m.p} ${l}: ${fmt(v,sd())} ${u}${neg?' (shortfall)':''}</title></rect>`+
+          `<text x="${x+bw/2}" y="${neg?yy+12:yy-4}" font-size="${bw<30?9:10.5}" font-weight="600" text-anchor="middle" fill="${neg?'var(--crit)':'var(--ink)'}">${fmt(v,0)}</text>`; }); });
+    box.innerHTML=s+'</svg>';
+    box.querySelectorAll('.legend span').forEach(el=>el.onclick=()=>{ const p=el.dataset.p; hiddenPl.has(p)?hiddenPl.delete(p):hiddenPl.add(p); draw(); });
+  };
+  draw();
+}
+const itemLabel = x => x.name+' ('+x.code+')';
+$('itemList').innerHTML = G().items.map(x=>`<option value="${esc(itemLabel(x))}"></option>`).join('');
+$('itemPick').addEventListener('input',e=>{
+  const v=e.target.value.trim();
+  const hit=G().items.find(x=>itemLabel(x).toLowerCase()===v.toLowerCase());
+  if(hit) location.hash='item='+encodeURIComponent(hit.code);
+  else if(v==='' && location.hash) location.hash='';
+});
+// ---------- live sync (Apps Script) ----------
+(function(){ const m=/[#&]key=([^&]+)/.exec(location.hash);
+  if(m){ try{ sessionStorage.setItem('rmcov_key',decodeURIComponent(m[1])); }catch(e){}
+    const rest=location.hash.replace(/[#&]?key=[^&]+/,'').replace(/^&/,'#'); history.replaceState(null,'',location.pathname+location.search+(rest==='#'?'':rest)); } })();
+const getKey=()=>{ try{ return sessionStorage.getItem('rmcov_key')||''; }catch(e){ return ''; } };
+function applyLive(d){
+  const gk=Object.keys(GROUPS)[0];
+  if(!d.groups||!d.groups[gk]) throw new Error('unexpected response');
+  GROUPS[gk]=d.groups[gk]; ['asof','invSync','pbaSync','invSyncFull','pbaSyncFull'].forEach(k=>DATA[k]=d[k]);
+  ASOF=new Date(d.asof+'T00:00:00'); setHeader();
+  $('itemList').innerHTML = G().items.map(x=>`<option value="${esc(itemLabel(x))}"></option>`).join('');
+  route();
+}
+$('syncBtn').onclick = async () => {
+  const msg=$('syncMsg'), btn=$('syncBtn');
+  if(!window.SYNC_URL){ msg.textContent='Live sync is not set up yet. Put the Apps Script URL in config.js (see SETUP-LIVE-SYNC.md).'; return; }
+  let key=getKey();
+  if(!key){ key=(prompt('Enter the sync key')||'').trim(); if(!key){ msg.textContent='Sync cancelled.'; return; } try{ sessionStorage.setItem('rmcov_key',key); }catch(e){} }
+  btn.disabled=true; msg.textContent='Reading the sheets…';
+  try{
+    const res=await fetch(window.SYNC_URL+'?action=data&key='+encodeURIComponent(key));
+    const j=await res.json();
+    if(!j.ok){ if(j.error==='unauthorized'){ try{ sessionStorage.removeItem('rmcov_key'); }catch(e){} msg.textContent='Wrong or missing sync key. Click Sync now to enter it again.'; } else msg.textContent='Sync failed: '+j.error; return; }
+    applyLive(j.data);
+    msg.textContent='Synced at '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+' · inventory '+j.data.invSync+', pending '+j.data.pbaSync;
+  }catch(e){ msg.textContent='Sync failed: '+(e.message||e); }
+  finally{ btn.disabled=false; }
+};
+
+function route(){
+  const m=/^#item=(.+)$/.exec(location.hash);
+  const code=m?decodeURIComponent(m[1]):null;
+  const ok = code && G().items.some(x=>x.code===code);
+  document.body.classList.toggle('item-mode',!!ok);
+  const cur=ok?G().items.find(x=>x.code===code):null;
+  if(document.activeElement!==$('itemPick') || ok) $('itemPick').value=cur?itemLabel(cur):'';
+  $('listView').hidden=!!ok; $('itemView').hidden=!ok;
+  if(ok){ itemView(code); window.scrollTo(0,0); } else render();
+}
+addEventListener('hashchange',route);
+['tCrit','tWarn','tTarget','exExp','timing'].forEach(id=>$(id).addEventListener('input',()=>{ if(!$('itemView').hidden) route(); }));
+route();
+</script>
+</body>
+</html>

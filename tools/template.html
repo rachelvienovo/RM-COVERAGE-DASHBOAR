@@ -144,6 +144,7 @@
   <h2>Basis and caveats</h2>
   <ul class="note notes">
     <li><b>Stock</b>: RM_WH_Mgt › INV (on-hand at last sync; /*STOCKNOTE*/). Includes plant, -PD (production) and EXT/ALAE warehouses; excludes -IT and -QA locations.</li>
+    <li><b>Cost</b>: Inventory Audit copy (sheet 'Inventory Price'), the <i>Avg Cost</i> column per warehouse (weighted by that sheet's Ending Balance when a warehouse has several rows). Stock value = stock from RM_WH_Mgt x avg cost. The audit's Ending Balance is not used for stock, so it can differ slightly from RM_WH_Mgt; stock is shown as in RM_WH_Mgt. Warehouses with no audit cost use the item's average.</li>
     <li><b>Consumption</b>: RM_WH_Mgt › each plant's MIN_ sheet, <i>AV W Fcasts consump</i> (average weekly forecast consumption) × 4 = monthly. Plants map to warehouses as Bulacan → AC, Isabela → PFMIS, Bukidnon → BUKID, South → SOUTH, plus HOREB and ARGAO. CCPC is not included. Sub-warehouses roll up to their plant (AC-PD and ACEXT to AC, BUKID-PD and ALAE to BUKID, and so on).</li>
     <li><b>Pending</b>: SBO Purchase Blanket Agreement › OPEN PBA + PO, balance quantity per warehouse. This is the unreceived balance of PBAs plus POs; no ETA is available, so pending is treated as arriving in full. PBAs past their end date are flagged and can be excluded.</li>
     <li><b>Shortfall to target</b> = target months × monthly consumption − stock − pending (already-ordered quantity is netted out). Targets and thresholds above are editable; the defaults are placeholders, not company policy.</li>
@@ -163,7 +164,16 @@ const $ = id => document.getElementById(id);
 const fmt = (n,d=0) => n==null||!isFinite(n) ? '–' : n.toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d});
 const fmtDate = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function setHeader(){ $('asof').textContent = 'As of '+fmtDate(ASOF)+' · stock & consumption: RM_WH_Mgt (synced '+DATA.invSync+') · pending: OPEN PBA + PO (synced '+DATA.pbaSync+')'; }
+const peso=(n,d=0)=>n==null||!isFinite(n)?'–':'₱'+fmt(n,d);
+const pesoM=n=>n==null||!isFinite(n)?'–':n>=1e9?'₱'+fmt(n/1e9,2)+'B':n>=1e6?'₱'+fmt(n/1e6,2)+'M':n>=1e3?'₱'+fmt(n/1e3,0)+'K':'₱'+fmt(n,0);
+const costUnit=()=>G().unit==='t'||G().unit==='kg'?'kg':'pc';
+const syncDay=s=>{ const m=/(\d{2})\/(\d{2})\/(\d{4})/.exec(s||''); return m?new Date(+m[3],+m[1]-1,+m[2]).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''; };
+// Average cost: per warehouse from the Inventory Audit; a warehouse with none uses the item's stock-weighted average.
+function itemCostOf(it){ const cp=PL.filter(p=>it.cost&&it.cost[p]>0); if(!cp.length) return null;
+  const w=cp.reduce((a,p)=>a+(it.stock[p]||0),0);
+  return w>0?cp.reduce((a,p)=>a+it.cost[p]*(it.stock[p]||0),0)/w:cp.reduce((a,p)=>a+it.cost[p],0)/cp.length; }
+const costOf=(it,p,ic)=>(it.cost&&it.cost[p]>0)?it.cost[p]:ic;
+function setHeader(){ $('asof').textContent = 'As of '+fmtDate(ASOF)+' · stock & consumption: RM_WH_Mgt (synced '+DATA.invSync+') · pending: OPEN PBA + PO (synced '+DATA.pbaSync+')'+(DATA.costSyncFull?' · avg cost: Inventory Audit (synced '+syncDay(DATA.costSyncFull)+')':''); }
 setHeader();
 
 const state = {sort:'daysW', dir:1, status:'all', open:null, group:Object.keys(GROUPS)[0]};
@@ -190,10 +200,12 @@ function calc(it,scope,exExp,tC,tW,tT){
   const daysP = daily>0 ? (stock+pe)/daily : null;
   let st;
   if(daily<=0) st='na'; else if(daysW<tC) st='crit'; else if(daysW<tW) st='warn'; else st='ok';
-  const per = {};
+  const per = {}, dv=G().div||1, ic=itemCostOf(it);
   PL.forEach(p=>{ const d=it.cons[p]/30; per[p]={cons:it.cons[p],stock:it.stock[p],pend:pend[p],
     dW:d>0?it.stock[p]/d:null, dP:d>0?(it.stock[p]+pend[p])/d:null}; });
-  return {it,cons,stock,pend:pe,daysW,daysP,months:daily>0?daysP/30:null,
+  const value=ps.reduce((a,p)=>a+(it.stock[p]||0)*dv*(costOf(it,p,ic)||0),0);
+  const avgCost=(stock>0&&value>0)?value/(stock*dv):ic;
+  return {it,cons,stock,pend:pe,value,avgCost,daysW,daysP,months:daily>0?daysP/30:null,
     runout: daysP!=null ? new Date(ASOF.getTime()+daysP*864e5) : null,
     gap: Math.max(0,tT*cons-stock-pe), st, per};
 }
@@ -219,6 +231,7 @@ function render(){
     ['crit','Critical',fmt(counts.crit),'stock cover < '+tC+' days'],
     ['warn','Watch',fmt(counts.warn),tC+'–'+tW+' days'],
     ['','Current stock',fmt(tot('stock'))+' '+g.unit,'warehouse on-hand'],
+    ['','Stock value',pesoM(tot('value')),'stock × avg cost'],
     ['','Pending PBA/PO',fmt(tot('pend'))+' '+g.unit,'unreceived balance'],
     ['','Shortfall to '+tT+' mo',fmt(tot('gap'))+' '+g.unit,fmt(needing.length)+' materials short']
   ].map(([c,l,v,s])=>`<div class="kpi ${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
@@ -227,7 +240,7 @@ function render(){
   let view = rows.filter(r=> (state.status==='all'||r.st===state.status) &&
     (!q || (r.it.code+' '+r.it.name).toLowerCase().includes(q)));
   // sort
-  const key = {code:r=>+r.it.code,name:r=>r.it.name,cons:r=>r.cons,stock:r=>r.stock,pend:r=>r.pend,
+  const key = {code:r=>+r.it.code,name:r=>r.it.name,cons:r=>r.cons,stock:r=>r.stock,avgCost:r=>r.avgCost,value:r=>r.value,pend:r=>r.pend,
     daysW:r=>r.daysW,daysP:r=>r.daysP,months:r=>r.months,gap:r=>r.gap,runout:r=>r.runout&&+r.runout}[state.sort];
   view.sort((a,b)=>{ const x=key(a),y=key(b);
     if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1;
@@ -289,14 +302,14 @@ function drawGaps(rows,scope,tT){
 }
 
 function drawTable(view,tC,tW){
-  const cols=[['code','Code','l'],['name','Material','l'],['cons','Monthly cons. ('+G().unit+')'],['stock','Stock ('+G().unit+')'],['pend','Pending ('+G().unit+')'],
+  const cols=[['code','Code','l'],['name','Material','l'],['cons','Monthly cons. ('+G().unit+')'],['stock','Stock ('+G().unit+')'],['avgCost','Avg cost (₱/'+costUnit()+')'],['value','Stock value (₱)'],['pend','Pending ('+G().unit+')'],
     ['daysW','DIO whse (d)'],['daysP','DIO + pending (d)'],['months','Months cover'],['runout','Run-out date (incl. pending)'],['gap','Short to target ('+G().unit+')'],['st','Status','l']];
   const ar = k => state.sort===k?(state.dir>0?' ▲':' ▼'):'';
   let h='<thead><tr>'+cols.map(([k,l,a])=>`<th class="${a||''}" data-k="${k}">${l}<span class="ar">${ar(k)}</span></th>`).join('')+'</tr></thead><tbody>';
   const lab={crit:'Critical',warn:'Watch',ok:'OK',na:'No usage'};
   view.forEach(r=>{
     h+=`<tr class="main" data-c="${r.it.code}"><td class="l">${r.it.code}</td><td class="l name">${esc(r.it.name)}</td>
-      <td>${fmt(r.cons)}</td><td>${fmt(r.stock,G().stockDec)}</td><td>${fmt(r.pend)}</td>
+      <td>${fmt(r.cons)}</td><td>${fmt(r.stock,G().stockDec)}</td><td>${r.avgCost!=null?fmt(r.avgCost,2):'–'}</td><td>${r.value>0?fmt(r.value):'–'}</td><td>${fmt(r.pend)}</td>
       <td class="${cls(r.daysW,tC,tW)}">${fmt(r.daysW,1)}</td><td>${fmt(r.daysP,1)}</td><td>${fmt(r.months,2)}</td>
       <td>${r.runout?fmtDate(r.runout):'–'}</td><td>${r.gap>0?fmt(r.gap):'–'}</td>
       <td class="l"><span class="pill p-${r.st}">${lab[r.st]}</span></td></tr>`;
@@ -378,10 +391,11 @@ function itemView(code){
     const avgP=pt>0?pw.reduce((a,l)=>a+l.o.t*l.o.price,0)/pt:null;
     const d=cons/30;
     return {p,lines,layers,shortfall,cons,stock,inc,eom,pend,avgP,dW:d>0?stock/d:null,dP:d>0?(stock+pend)/d:null,
+      cost:costOf(it,p,itemCostOf(it)), value:stock*(G().div||1)*(costOf(it,p,itemCostOf(it))||0),
       firstNeg:eom.findIndex(v=>v<0), sub:it.stockWh?Object.entries(it.stockWh).filter(([w])=>plantOfWh(w)===p):[]};
   });
   const tot=k=>model.reduce((a,m)=>a+m[k],0);
-  const tcons=tot('cons'), tstock=tot('stock'), tpend=tot('pend');
+  const tcons=tot('cons'), tstock=tot('stock'), tpend=tot('pend'), tvalue=tot('value'), tavg=tstock>0&&tvalue>0?tvalue/(tstock*(G().div||1)):itemCostOf(it);
   let h=`<div class="panel"><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><button class="back" id="back">← All items</button>
     
     <div><h2 style="font-size:17px;margin:0">${esc(it.name)} <span class="note">${esc(it.code)}</span></h2><div class="note">${G().label} · ${UNITNAME[u]} · as of ${fmtDate(ASOF)}</div></div></div></div>`;
@@ -391,18 +405,20 @@ function itemView(code){
   const ro=tdP!=null?fmtDate(new Date(ASOF.getTime()+tdP*864e5)):'–';
   h+=`<div class="kpis">`+[
     ['','Total stock',fmt(tstock,sd())+' '+u,'across '+model.length+' warehouse'+(model.length>1?'s':'')],
+    ['','Avg cost',tavg!=null?peso(tavg,2)+' /'+costUnit():'–','Inventory Audit, weighted by stock'],
+    ['','Stock value',pesoM(tvalue),'stock × avg cost'],
     ['','Pending PBA/PO',fmt(tpend,sd())+' '+u,'unreceived balance'],
     ['','Monthly consumption',fmt(tcons,dec())+' '+u,'avg weekly forecast × 4'],
     [ST(tdW),'Days of cover (stock)',tdW!=null?fmt(tdW,1)+' d':'–',SL[ST(tdW)]],
     ['','Cover incl. pending',tdP!=null?fmt(tdP,1)+' d':'–','runs out about '+ro],
     [tgap>0?'warn':'ok','Short to '+tT+' months',tgap>0?fmt(tgap,sd())+' '+u:'None','sum of warehouse shortfalls']
   ].map(([c,l,v,s])=>`<div class="kpi ${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('')+`</div>`;
-  h+=`<div class="panel"><h2>Projected end-of-month stock, all warehouses</h2><div class="note" style="margin-bottom:6px">${fifo?'FIFO, next PBA pulled in only when inventory would go negative':'Deliveries at PBA end date'}}. Values in ${UNITNAME[u]}. Click a warehouse in the legend to hide or show it.</div><div id="projBox"></div></div>`;
+  h+=`<div class="panel"><h2>Projected end-of-month stock, all warehouses</h2><div class="note" style="margin-bottom:6px">${fifo?'FIFO, next PBA pulled in only when inventory would go negative':'Deliveries at PBA end date'}. Values in ${UNITNAME[u]}. Click a warehouse in the legend to hide or show it.</div><div id="projBox"></div></div>`;
   // summary by warehouse
-  h+=`<div class="panel posbox"><h2>Position by warehouse</h2><div class="scroll"><table class="pos"><thead><tr><th class="l">Warehouse</th><th>Consumption (${u}/mo)</th><th>Stock (${u})</th><th>Pending (${u})</th><th>Avg pending price</th><th>DIO whse (d)</th><th>DIO + pending (d)</th><th>Cover situation</th></tr></thead><tbody>`+
-   model.map(m=>`<tr><td class="l">${m.p}</td><td>${fmt(m.cons,dec())}</td><td>${fmt(m.stock,sd())}</td><td>${fmt(m.pend,sd())}</td><td>${m.avgP!=null?fmt(m.avgP,2):'–'}</td>
+  h+=`<div class="panel posbox"><h2>Position by warehouse</h2><div class="scroll"><table class="pos"><thead><tr><th class="l">Warehouse</th><th>Consumption (${u}/mo)</th><th>Stock (${u})</th><th>Avg cost (₱/${costUnit()})</th><th>Stock value (₱)</th><th>Pending (${u})</th><th>Avg pending price</th><th>DIO whse (d)</th><th>DIO + pending (d)</th><th>Cover situation</th></tr></thead><tbody>`+
+   model.map(m=>`<tr><td class="l">${m.p}</td><td>${fmt(m.cons,dec())}</td><td>${fmt(m.stock,sd())}</td><td>${m.cost!=null?fmt(m.cost,2):'–'}</td><td>${m.value>0?fmt(m.value):'–'}</td><td>${fmt(m.pend,sd())}</td><td>${m.avgP!=null?fmt(m.avgP,2):'–'}</td>
      <td class="${cls(m.dW,tC,tW)}">${fmt(m.dW,1)}</td><td>${fmt(m.dP,1)}</td><td>${m.dP!=null?fmtDate(new Date(ASOF.getTime()+m.dP*864e5)):'–'}</td></tr>`).join('')+
-   `<tr class="eom"><td class="l">TOTAL</td><td>${fmt(tcons,dec())}</td><td>${fmt(tstock,sd())}</td><td>${fmt(tpend,sd())}</td><td></td><td></td><td></td><td></td></tr></tbody></table></div>
+   `<tr class="eom"><td class="l">TOTAL</td><td>${fmt(tcons,dec())}</td><td>${fmt(tstock,sd())}</td><td>${tavg!=null?fmt(tavg,2):'–'}</td><td>${tvalue>0?fmt(tvalue):'–'}</td><td>${fmt(tpend,sd())}</td><td></td><td></td><td></td><td></td></tr></tbody></table></div>
    <p class="note">Consumption is recorded per plant, so a warehouse's days of cover use its plant's consumption. Sub-warehouses (e.g. AC-PD, ACEXT) are shown inside each table below.</p></div>`;
   // one table per warehouse
   model.forEach(m=>{
@@ -480,7 +496,7 @@ const getKey=()=>{ try{ return sessionStorage.getItem('rmcov_key')||''; }catch(e
 function applyLive(d){
   const gk=Object.keys(GROUPS)[0];
   if(!d.groups||!d.groups[gk]) throw new Error('unexpected response');
-  GROUPS[gk]=d.groups[gk]; ['asof','invSync','pbaSync','invSyncFull','pbaSyncFull'].forEach(k=>DATA[k]=d[k]);
+  GROUPS[gk]=d.groups[gk]; ['asof','invSync','pbaSync','invSyncFull','pbaSyncFull','costSyncFull'].forEach(k=>DATA[k]=d[k]);
   ASOF=new Date(d.asof+'T00:00:00'); setHeader();
   $('itemList').innerHTML = G().items.map(x=>`<option value="${esc(itemLabel(x))}"></option>`).join('');
   route();

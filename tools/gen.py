@@ -9,5 +9,5 @@ pages=[('MACRO','index.html','Macro','Macro Coverage Dashboard','MACRO class, kg
 ('FEEDTAGS','feedtags.html','Feedtags','Feedtags Coverage Dashboard','FEEDTAGS class, in pieces',"<li><b>Feedtags</b>: class FEEDTAGS; quantities are pieces. Pending lines with a zero or negative balance are ignored.</li>\n    ")]
 nav=lambda cur:' · '.join(('<b>%s</b>'%n if f==cur else '<a href="%s" style="color:var(--accent)">%s</a>'%(f,n)) for f,n in [(p[1],p[2]+' coverage') for p in pages]+[('sync.html','Sync')])
 for g,f,n,title,sn,extra in pages:
-    dd={k:d[k] for k in ('asof','invSync','pbaSync','plants')}; dd['groups']={g:d['groups'][g]}
+    dd={k:d[k] for k in ('asof','invSync','pbaSync','costSyncFull','plants') if k in d}; dd['groups']={g:d['groups'][g]}
     open(OUT+f,'w').write(t.replace('/*TITLE*/',title).replace('/*NAV*/',nav(f)).replace('/*PKGNOTE*/',extra).replace('/*STOCKNOTE*/',sn).replace('/*DATA*/',json.dumps(dd,separators=(',',':'))))

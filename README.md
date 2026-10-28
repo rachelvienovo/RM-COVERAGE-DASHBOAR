@@ -8,6 +8,7 @@ Static dashboards showing days of cover for raw materials.
 - `feedtags.html`: Feedtags (pieces)
 - `sync.html`: data freshness, snapshot history and changes since the last sync (`history.json` holds the snapshots)
 - `tools/`: the build scripts and `SYNC-PROCEDURE.md` (how the dashboards are rebuilt from the sheets)
+- Average cost and stock value come from the "Inventory Price" sheet (Inventory Audit copy); see `tools/SYNC-PROCEDURE.md`.
 
 Data is a snapshot embedded in each page (as of 2026-10-20). Stock and consumption come from RM_WH_Mgt; pending comes from the OPEN PBA + PO tab of SBO Purchase Blanket Agreement.
 

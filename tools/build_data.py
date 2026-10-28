@@ -4,23 +4,31 @@ import sys
 S=sys.argv[1] if len(sys.argv)>1 else './'
 if not S.endswith('/'): S+='/'
 wh=openpyxl.load_workbook(S+'src/wh.xlsx',data_only=True)
+au=openpyxl.load_workbook(S+'src/audit.xlsx',data_only=True)['Sheet1']
 pb=openpyxl.load_workbook(S+'src/pba.xlsx',data_only=True)
 
+# warehouse code -> warehouse (as given by the business). Quarantine (-QA) and in-transit (-IT) codes are not counted.
+WH_MAP={}
+for _p in ("AC AC|ACEXT AC|ACEXT-MK AC|AC-MK AC|ACOW AC|ACOW-MK AC|AC-PD AC|ALAE BUKID|ARGAO ARGAO|ARGAO-PD ARGAO|BAC HOREB|"
+           "BUKID BUKID|BUKID-MK BUKID|BUKID-PD BUKID|CCPC BUKID|HBEXT HOREB|HOREB HOREB|HOREB-MK HOREB|HOREB-PD HOREB|"
+           "PFMIS PFMIS|PFMIS-PD PFMIS|SOUTH SOUTH|SOUTH-PD SOUTH").split('|'):
+    _c,_w=_p.split(); WH_MAP[_c]=_w
 def plant_of_wh(w):
-    if w is None: return None
-    if w.endswith('-IT') or w.endswith('-QA'): return None
-    if w.startswith('AC'): return 'AC'
-    if w.startswith('PFMIS'): return 'PFMIS'
-    if w.startswith('BUKID') or w.startswith('ALAE'): return 'BUKID'
-    if w.startswith('SOUTH'): return 'SOUTH'
-    if w=='BAC' or w.startswith('HOREB') or w.startswith('HBEXT'): return 'HOREB'
-    if w.startswith('ARGAO'): return 'ARGAO'
-    return None
+    return WH_MAP.get(str(w)) if w else None
 PL=['AC','PFMIS','BUKID','SOUTH','HOREB','ARGAO']
 def code(x):
     try: return str(int(float(x)))
     except: return str(x)
 
+# Average cost from the Inventory Audit copy (Avg Cost column), weighted by that sheet's Ending Balance, per warehouse.
+# Stock quantities stay as in RM_WH_Mgt; the audit's ending balance is only used as the weight.
+# COST[(class, item code)][warehouse] = [sum(balance x avg cost), sum(balance)]
+COST={}
+for _r in au.iter_rows(min_row=5,values_only=True):
+    if not _r[0]: continue
+    _p=plant_of_wh(_r[4])
+    if _p and isinstance(_r[13],(int,float)) and isinstance(_r[15],(int,float)) and _r[13]>0 and _r[15]>0:
+        _a=COST.setdefault((_r[0],code(_r[1])),{}).setdefault(_p,[0.0,0.0]); _a[0]+=_r[13]*_r[15]; _a[1]+=_r[13]
 ASOF_DT=datetime.datetime(2026,10,20)
 def build(CLS,DIV):
     global items
@@ -31,7 +39,7 @@ def build(CLS,DIV):
         return items[c]
 
     # consumption: average weekly forecast consumption x 4, from each plant's MIN_ sheet
-    mins={'MIN_BULACAN':'AC','MIN_ISA':'PFMIS','MIN_HOREB':'HOREB','MIN_ARGAO':'ARGAO','MIN_BUKID':'BUKID','MIN_SOUTH':'SOUTH'}
+    mins={'MIN_BULACAN':'AC','MIN_ISA':'PFMIS','MIN_HOREB':'HOREB','MIN_ARGAO':'ARGAO','MIN_BUKID':'BUKID','MIN_SOUTH':'SOUTH','MIN_CCPC':'BUKID'}
     for sh,pl in mins.items():
         ws=wh[sh]; h=None
         for n,r in enumerate(ws.iter_rows(min_row=1,max_row=12,values_only=True),1):
@@ -68,7 +76,8 @@ def build(CLS,DIV):
     out=[]
     for c,it in sorted(items.items(),key=lambda x:(0,int(x[0]),'') if x[0].isdigit() else (1,0,x[0])):
         t=lambda d:{k:round(v/DIV,3) for k,v in d.items()}
-        row={'code':c,'name':it['name'],'cons':t(it['cons']),'stock':t(it['stock']),'pend':t(it['pend']),'stockWh':{k:round(v/DIV,3) for k,v in it['wh'].items() if v},'pos':sorted(it['pos'],key=lambda x:-x['t'])}
+        row={'code':c,'name':it['name'],'cons':t(it['cons']),'stock':t(it['stock']),'pend':t(it['pend']),'stockWh':{k:round(v/DIV,3) for k,v in it['wh'].items() if v},
+            'cost':{p:round(v[0]/v[1],4) for p,v in COST.get((CLS,c),{}).items()},'pos':sorted(it['pos'],key=lambda x:-x['t'])}
         row['code']=c
         if sum(row['cons'].values())+sum(row['stock'].values())+sum(row['pend'].values())>0: out.append(row)
     return out
@@ -80,10 +89,10 @@ inv_sync=wh['INV']['A2'].value; pba_sync=pb['OPEN PBA + PO']['A3'].value
 ASOF=_d(inv_sync) or datetime.datetime.today()
 ASOF_DT=ASOF
 print('inv',inv_sync,'| pba',pba_sync)
-res={'asof':ASOF.strftime('%Y-%m-%d'),'invSync':ASOF.strftime('%b %d'),'invSyncFull':str(inv_sync),'pbaSyncFull':str(pba_sync),'pbaSync':(_d(pba_sync) or ASOF).strftime('%b %d'),'plants':PL,'groups':{
- 'MACRO':{'label':'Macro','unit':'t','dec':0,'stockDec':1,'items':build('MACRO',1000)},
- 'PACKAGING':{'label':'Packaging','unit':'pcs','dec':0,'stockDec':0,'items':build('PACKAGING',1)},
- 'MICRO':{'label':'Micro','unit':'kg','dec':0,'stockDec':0,'items':build('MICRO',1)},
- 'FEEDTAGS':{'label':'Feedtags','unit':'pcs','dec':0,'stockDec':0,'items':build('FEEDTAGS',1)}}}
+res={'asof':ASOF.strftime('%Y-%m-%d'),'invSync':ASOF.strftime('%b %d'),'invSyncFull':str(inv_sync),'costSyncFull':str(au['A2'].value),'pbaSyncFull':str(pba_sync),'pbaSync':(_d(pba_sync) or ASOF).strftime('%b %d'),'plants':PL,'groups':{
+ 'MACRO':{'label':'Macro','unit':'t','dec':0,'stockDec':1,'div':1000,'items':build('MACRO',1000)},
+ 'PACKAGING':{'label':'Packaging','unit':'pcs','dec':0,'stockDec':0,'div':1,'items':build('PACKAGING',1)},
+ 'MICRO':{'label':'Micro','unit':'kg','dec':0,'stockDec':0,'div':1,'items':build('MICRO',1)},
+ 'FEEDTAGS':{'label':'Feedtags','unit':'pcs','dec':0,'stockDec':0,'div':1,'items':build('FEEDTAGS',1)}}}
 json.dump(res,open(S+'data.json','w'),separators=(',',':'))
 for k,g in res['groups'].items(): print(k,len(g['items']),sum(sum(i['stock'].values()) for i in g['items']),sum(sum(i['pend'].values()) for i in g['items']))
