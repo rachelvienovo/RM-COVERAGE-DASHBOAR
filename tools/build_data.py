@@ -4,7 +4,11 @@ import sys
 S=sys.argv[1] if len(sys.argv)>1 else './'
 if not S.endswith('/'): S+='/'
 wh=openpyxl.load_workbook(S+'src/wh.xlsx',data_only=True)
-au=openpyxl.load_workbook(S+'src/audit.xlsx',data_only=True)['Sheet1']
+_aw=openpyxl.load_workbook(S+'src/audit.xlsx',data_only=True)
+au=_aw['Sheet1']
+_h=list(next(au.iter_rows(min_row=4,max_row=4,values_only=True)))
+AGE_LAYOUT=len(_h)>13 and _h[12]=='Cost' and _h[13]=='AGING'   # Sheet1 is the Inventory (Ageing) import
+ageing=au if AGE_LAYOUT else None
 pb=openpyxl.load_workbook(S+'src/pba.xlsx',data_only=True)
 
 # warehouse code -> warehouse (as given by the business). Quarantine (-QA) and in-transit (-IT) codes are not counted.
@@ -24,11 +28,24 @@ def code(x):
 # Stock quantities stay as in RM_WH_Mgt; the audit's ending balance is only used as the weight.
 # COST[(class, item code)][warehouse] = [sum(balance x avg cost), sum(balance)]
 COST={}
-for _r in au.iter_rows(min_row=5,values_only=True):
+for _r in ([] if AGE_LAYOUT else au.iter_rows(min_row=5,values_only=True)):
     if not _r[0]: continue
     _p=plant_of_wh(_r[4])
     if _p and isinstance(_r[13],(int,float)) and isinstance(_r[15],(int,float)) and _r[13]>0 and _r[15]>0:
         _a=COST.setdefault((_r[0],code(_r[1])),{}).setdefault(_p,[0.0,0.0]); _a[0]+=_r[13]*_r[15]; _a[1]+=_r[13]
+# Batch cost from the Inventory (Ageing) copy: Cost (column M) weighted by QTY in KG (column J), per warehouse.
+# Items without batches there have no cost (the older Inventory Audit layout is still read if Sheet1 holds that instead).
+AGEC={}
+if ageing is not None:
+    for _r in ageing.iter_rows(min_row=5,values_only=True):
+        if not _r[0]: continue
+        _p=plant_of_wh(_r[4])
+        if _p and isinstance(_r[9],(int,float)) and isinstance(_r[12],(int,float)) and _r[9]>0 and _r[12]>0:
+            _a=AGEC.setdefault((_r[0],code(_r[3])),{}).setdefault(_p,[0.0,0.0]); _a[0]+=_r[9]*_r[12]; _a[1]+=_r[9]
+def cost_for(cls,c):
+    out={p:v[0]/v[1] for p,v in COST.get((cls,c),{}).items()}
+    out.update({p:v[0]/v[1] for p,v in AGEC.get((cls,c),{}).items()})
+    return {p:round(x,4) for p,x in out.items()}
 ASOF_DT=datetime.datetime(2026,10,20)
 def build(CLS,DIV):
     global items
@@ -77,7 +94,7 @@ def build(CLS,DIV):
     for c,it in sorted(items.items(),key=lambda x:(0,int(x[0]),'') if x[0].isdigit() else (1,0,x[0])):
         t=lambda d:{k:round(v/DIV,3) for k,v in d.items()}
         row={'code':c,'name':it['name'],'cons':t(it['cons']),'stock':t(it['stock']),'pend':t(it['pend']),'stockWh':{k:round(v/DIV,3) for k,v in it['wh'].items() if v},
-            'cost':{p:round(v[0]/v[1],4) for p,v in COST.get((CLS,c),{}).items()},'pos':sorted(it['pos'],key=lambda x:-x['t'])}
+            'cost':cost_for(CLS,c),'pos':sorted(it['pos'],key=lambda x:-x['t'])}
         row['code']=c
         if sum(row['cons'].values())+sum(row['stock'].values())+sum(row['pend'].values())>0: out.append(row)
     return out
@@ -89,7 +106,7 @@ inv_sync=wh['INV']['A2'].value; pba_sync=pb['OPEN PBA + PO']['A3'].value
 ASOF=_d(inv_sync) or datetime.datetime.today()
 ASOF_DT=ASOF
 print('inv',inv_sync,'| pba',pba_sync)
-res={'asof':ASOF.strftime('%Y-%m-%d'),'invSync':ASOF.strftime('%b %d'),'invSyncFull':str(inv_sync),'costSyncFull':str(au['A2'].value),'pbaSyncFull':str(pba_sync),'pbaSync':(_d(pba_sync) or ASOF).strftime('%b %d'),'plants':PL,'groups':{
+res={'asof':ASOF.strftime('%Y-%m-%d'),'invSync':ASOF.strftime('%b %d'),'invSyncFull':str(inv_sync),'costSyncFull':(str(au['A2'].value)+' | as of '+au['D2'].value.strftime('%m/%d/%Y')) if AGE_LAYOUT and hasattr(au['D2'].value,'strftime') else str(au['A2'].value),'pbaSyncFull':str(pba_sync),'pbaSync':(_d(pba_sync) or ASOF).strftime('%b %d'),'plants':PL,'groups':{
  'MACRO':{'label':'Macro','unit':'t','dec':0,'stockDec':1,'div':1000,'items':build('MACRO',1000)},
  'PACKAGING':{'label':'Packaging','unit':'pcs','dec':0,'stockDec':0,'div':1,'items':build('PACKAGING',1)},
  'MICRO':{'label':'Micro','unit':'kg','dec':0,'stockDec':0,'div':1,'items':build('MICRO',1)},

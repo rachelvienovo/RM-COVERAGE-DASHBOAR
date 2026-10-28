@@ -144,7 +144,7 @@
   <h2>Basis and caveats</h2>
   <ul class="note notes">
     <li><b>Stock</b>: RM_WH_Mgt › INV (on-hand at last sync; /*STOCKNOTE*/). Includes plant, -PD (production) and EXT/ALAE warehouses; excludes -IT and -QA locations.</li>
-    <li><b>Cost</b>: Inventory Audit copy (sheet 'Inventory Price'), the <i>Avg Cost</i> column per warehouse (weighted by that sheet's Ending Balance when a warehouse has several rows). Stock value = stock from RM_WH_Mgt x avg cost. The audit's Ending Balance is not used for stock, so it can differ slightly from RM_WH_Mgt; stock is shown as in RM_WH_Mgt. Warehouses with no audit cost use the item's average.</li>
+    <li><b>Cost</b>: Inventory Price sheet, an import of the Inventory (Ageing) tab. Average cost is the batch <i>Cost</i> (column M) weighted by <i>QTY in KG</i>, per warehouse. Stock value = stock from RM_WH_Mgt x that average cost, so stock stays as in RM_WH_Mgt. A warehouse with no batches uses the item's average. Packaging items are not in the Ageing tab, so they show no cost.</li>
     <li><b>Consumption</b>: RM_WH_Mgt › each plant's MIN_ sheet, <i>AV W Fcasts consump</i> (average weekly forecast consumption) × 4 = monthly. Plants map to warehouses as Bulacan → AC, Isabela → PFMIS, Bukidnon → BUKID, South → SOUTH, plus HOREB and ARGAO. CCPC is not included. Sub-warehouses roll up to their plant (AC-PD and ACEXT to AC, BUKID-PD and ALAE to BUKID, and so on).</li>
     <li><b>Pending</b>: SBO Purchase Blanket Agreement › OPEN PBA + PO, balance quantity per warehouse. This is the unreceived balance of PBAs plus POs; no ETA is available, so pending is treated as arriving in full. PBAs past their end date are flagged and can be excluded.</li>
     <li><b>Shortfall to target</b> = target months × monthly consumption − stock − pending (already-ordered quantity is netted out). Targets and thresholds above are editable; the defaults are placeholders, not company policy.</li>
@@ -173,7 +173,7 @@ function itemCostOf(it){ const cp=PL.filter(p=>it.cost&&it.cost[p]>0); if(!cp.le
   const w=cp.reduce((a,p)=>a+(it.stock[p]||0),0);
   return w>0?cp.reduce((a,p)=>a+it.cost[p]*(it.stock[p]||0),0)/w:cp.reduce((a,p)=>a+it.cost[p],0)/cp.length; }
 const costOf=(it,p,ic)=>(it.cost&&it.cost[p]>0)?it.cost[p]:ic;
-function setHeader(){ $('asof').textContent = 'As of '+fmtDate(ASOF)+' · stock & consumption: RM_WH_Mgt (synced '+DATA.invSync+') · pending: OPEN PBA + PO (synced '+DATA.pbaSync+')'+(DATA.costSyncFull?' · avg cost: Inventory Audit (synced '+syncDay(DATA.costSyncFull)+')':''); }
+function setHeader(){ $('asof').textContent = 'As of '+fmtDate(ASOF)+' · stock & consumption: RM_WH_Mgt (synced '+DATA.invSync+') · pending: OPEN PBA + PO (synced '+DATA.pbaSync+')'+(DATA.costSyncFull?' · cost: Inventory Ageing (as of '+syncDay(DATA.costSyncFull)+')':''); }
 setHeader();
 
 const state = {sort:'daysW', dir:1, status:'all', open:null, group:Object.keys(GROUPS)[0]};
@@ -405,7 +405,7 @@ function itemView(code){
   const ro=tdP!=null?fmtDate(new Date(ASOF.getTime()+tdP*864e5)):'–';
   h+=`<div class="kpis">`+[
     ['','Total stock',fmt(tstock,sd())+' '+u,'across '+model.length+' warehouse'+(model.length>1?'s':'')],
-    ['','Avg cost',tavg!=null?peso(tavg,2)+' /'+costUnit():'–','Inventory Audit, weighted by stock'],
+    ['','Avg cost',tavg!=null?peso(tavg,2)+' /'+costUnit():'–','Ageing batch cost, weighted by stock'],
     ['','Stock value',pesoM(tvalue),'stock × avg cost'],
     ['','Pending PBA/PO',fmt(tpend,sd())+' '+u,'unreceived balance'],
     ['','Monthly consumption',fmt(tcons,dec())+' '+u,'avg weekly forecast × 4'],

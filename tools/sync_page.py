@@ -75,7 +75,7 @@ $('sub').textContent='Latest snapshot taken '+fd(cur.taken)+' · '+HIST.length+'
 function age(str,ref){const m=/(\\d{2})\\/(\\d{2})\\/(\\d{4})/.exec(str);if(!m)return null;const d=new Date(+m[3],+m[1]-1,+m[2]);const t=ref||new Date(cur.taken+'T00:00:00');return Math.max(0,Math.round((t-d)/864e5));}
 function pill(a){if(a==null)return '';return a<=1?'<span class="pill p-ok">Fresh</span>':a<=3?`<span class="pill p-warn">${a} days old</span>`:`<span class="pill p-crit">${a} days old</span>`;}
 const clean=s=>s.replace(/^(INV sync|Last sync):\\s*/,'');
-function cards(inv,pba,ref,live,cost){ $('cards').innerHTML=[['Inventory and consumption','RM_WH_Mgt › INV, MIN_ sheets',inv],['Pending PBA + PO','SBO Purchase Blanket Agreement › OPEN PBA + PO',pba]].concat(cost?[['Average cost','Inventory Price › Sheet1 (Inventory Audit)',cost]]:[]).map(([t,src,s])=>
+function cards(inv,pba,ref,live,cost){ $('cards').innerHTML=[['Inventory and consumption','RM_WH_Mgt › INV, MIN_ sheets',inv],['Pending PBA + PO','SBO Purchase Blanket Agreement › OPEN PBA + PO',pba]].concat(cost?[['Average cost','Inventory Price › Sheet1 (Inventory Ageing import)',cost]]:[]).map(([t,src,s])=>
  `<div class="card"><div class="t">${t} ${pill(age(s,ref))}</div><div class="note">${src}</div><div class="v">${esc(clean(s))}</div><div class="note">${live?'Source synced (read live from the sheet just now)':'Source synced at the time of the latest snapshot'}</div></div>`).join(''); }
 cards(cur.inv,cur.pba,new Date(cur.taken+'T00:00:00'),false,cur.cost);
 (function(){ const m=/[#&]key=([^&]+)/.exec(location.hash); if(m){ try{ sessionStorage.setItem('rmcov_key',decodeURIComponent(m[1])); }catch(e){} history.replaceState(null,'',location.pathname+location.search); } })();

@@ -11,7 +11,7 @@
  */
 var WH_ID = '1wFwiKAfhgkTKgL3QvKj8yn2jWyxGw55infzXfJtZXsI';   // RM_WH_Mgt
 var PBA_ID = '1uavWZvYKFIivSr4Sz8NXDUdDZuQsSNH-PI6wH3LF4kQ';  // SBO Purchase Blanket Agreement
-var AUDIT_ID = '17dwpOMvXaS3Rx1jmpX9Hf18X-74JoOLty5EapFxnbFY'; // Inventory Price (copy of the Inventory Audit tab), tab Sheet1
+var AUDIT_ID = '17dwpOMvXaS3Rx1jmpX9Hf18X-74JoOLty5EapFxnbFY'; // Inventory Price: IMPORTRANGE copy of Inventory (Ageing), tab Sheet1
 
 var PLANTS = ['AC', 'PFMIS', 'BUKID', 'SOUTH', 'HOREB', 'ARGAO'];
 // plant -> its MIN_ sheet (consumption = AV W Fcasts consump x WEEKS_PER_MONTH)
@@ -66,11 +66,15 @@ var WH_MAP = {};
  'PFMIS PFMIS|PFMIS-PD PFMIS|SOUTH SOUTH|SOUTH-PD SOUTH').split('|').forEach(function (p) { var a = p.split(' '); WH_MAP[a[0]] = a[1]; });
 function plantOfWh_(w) { return w ? (WH_MAP[String(w)] || null) : null; }
 
+function costSync_(a2, d2) {
+  return String(a2) + (d2 instanceof Date ? ' | as of ' + Utilities.formatDate(d2, Session.getScriptTimeZone(), 'MM/dd/yyyy') : '');
+}
+
 function status_() {
   var inv = SpreadsheetApp.openById(WH_ID).getSheetByName('INV').getRange('A2').getValue();
   var pba = SpreadsheetApp.openById(PBA_ID).getSheetByName('OPEN PBA + PO').getRange('A3').getValue();
-  var cost = SpreadsheetApp.openById(AUDIT_ID).getSheetByName('Sheet1').getRange('A2').getValue();
-  return { invSyncFull: String(inv), pbaSyncFull: String(pba), costSyncFull: String(cost) };
+  var cs = SpreadsheetApp.openById(AUDIT_ID).getSheetByName('Sheet1');
+  return { invSyncFull: String(inv), pbaSyncFull: String(pba), costSyncFull: costSync_(cs.getRange('A2').getValue(), cs.getRange('D2').getValue()) };
 }
 
 function zeroes_() { var o = {}; PLANTS.forEach(function (p) { o[p] = 0; }); return o; }
@@ -92,16 +96,17 @@ function build_() {
     if (typeof r[1] === 'number' && r[3] instanceof Date) ends[Math.round(r[1]) + '|' + code_(r[6]) + '|' + r[8]] = r[3];
   });
 
-  // Average cost per warehouse (Inventory Audit: Avg Cost, weighted by Ending Balance). Stock stays as in RM_WH_Mgt.
+  // Cost per warehouse from Inventory (Ageing): Cost (column M) weighted by QTY in KG (column J).
+  // Stock quantities stay as in RM_WH_Mgt.
   var auditRows = values(SpreadsheetApp.openById(AUDIT_ID), 'Sheet1');
   var costSums = {};
   auditRows.slice(4).forEach(function (r) {
     if (!r[0]) return;
     var p = plantOfWh_(r[4]);
-    if (p && typeof r[13] === 'number' && typeof r[15] === 'number' && r[13] > 0 && r[15] > 0) {
-      var k = r[0] + '|' + code_(r[1]) + '|' + p;
+    if (p && typeof r[9] === 'number' && typeof r[12] === 'number' && r[9] > 0 && r[12] > 0) {
+      var k = r[0] + '|' + code_(r[3]) + '|' + p;
       var a = costSums[k] || (costSums[k] = [0, 0]);
-      a[0] += r[13] * r[15]; a[1] += r[13];
+      a[0] += r[9] * r[12]; a[1] += r[9];
     }
   });
 
@@ -109,7 +114,7 @@ function build_() {
   Object.keys(MIN_SHEETS).forEach(function (n) { minData[n] = values(wh, n); });
 
   var out = { asof: ymd_(asof), invSync: Utilities.formatDate(asof, Session.getScriptTimeZone(), 'MMM dd'),
-    invSyncFull: invSync, pbaSyncFull: pbaSync, costSyncFull: String(auditRows[1][0]), plants: PLANTS, groups: {} };
+    invSyncFull: invSync, pbaSyncFull: pbaSync, costSyncFull: costSync_(auditRows[1][0], auditRows[1][3]), plants: PLANTS, groups: {} };
   var pbaDate = dateIn_(pbaSync);
   out.pbaSync = Utilities.formatDate(pbaDate || asof, Session.getScriptTimeZone(), 'MMM dd');
 
