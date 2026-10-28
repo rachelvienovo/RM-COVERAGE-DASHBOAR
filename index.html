@@ -126,7 +126,7 @@
     <div id="chart"></div>
   </div>
   <div class="panel">
-    <h2>Where the gaps are</h2>
+    <h2 id="gapsTitle">Where the gaps are</h2>
     <div id="gaps" class="note"></div>
   </div>
 </div>
@@ -233,7 +233,7 @@ function render(){
     if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1;
     return (x<y?-1:x>y?1:0)*state.dir; });
   drawChart(rows,tC,tW);
-  drawGaps(rows,scope,tT);
+  if(KEY_ITEMS[state.group]) drawKey(rows,tC,tW,tT); else drawGaps(rows,scope,tT);
   drawTable(view,tC,tW);
 }
 
@@ -257,7 +257,22 @@ function drawChart(rows,tC,tW){
   $('capNote').textContent = 'Axis capped at '+CAP+' days · dashed line = critical threshold · top 10 lowest shown, items with no consumption are left out';
 }
 
+// Dashboards that show a fixed list of major commodities instead of the generic gaps panel
+const KEY_ITEMS = {MACRO:[['10100','Corn Yellow (Class A)'],['10000','Feed Wheat'],['30000','Soybean Meal'],['11420','Bakery Meal'],['11270','Corn Fermented Protein']]};
+function drawKey(rows,tC,tW,tT){
+  $('gapsTitle').textContent='Major commodities';
+  const u=G().unit, by=Object.fromEntries(rows.map(r=>[r.it.code,r]));
+  const lab={crit:'Critical',warn:'Watch',ok:'OK',na:'No usage'};
+  let h='<div class="scroll"><table class="mini"><thead><tr><th class="l">Commodity</th><th>Stock ('+u+')</th><th>Use ('+u+'/mo)</th><th>Cover (d)</th><th>+ pending (d)</th><th>Runs out (incl. pending)</th></tr></thead><tbody>';
+  KEY_ITEMS[state.group].forEach(([code,name])=>{ const r=by[code];
+    if(!r){ h+=`<tr><td class="l">${esc(name)}</td><td colspan="5" class="note">No data</td></tr>`; return; }
+    h+=`<tr class="main" data-c="${code}" style="cursor:pointer"><td class="l"><b>${esc(name)}</b> <span class="pill p-${r.st}">${lab[r.st]}</span></td><td>${fmt(r.stock,sd())}</td><td>${fmt(r.cons,dec())}</td>
+      <td class="${cls(r.daysW,tC,tW)}">${fmt(r.daysW,1)}</td><td>${fmt(r.daysP,1)}</td><td>${r.runout?fmtDate(r.runout):'–'}</td></tr>`; });
+  h+='</tbody></table></div><p class="note" style="margin-top:8px">Click a commodity to open its item view. Corn Yellow is item 10100 and Bakery Meal is imported bakery meal (11420); Corn Yellow Class B, Bread Meal and Local Bakery Meal are separate items. Follows the warehouse filter.</p>';
+  $('gaps').innerHTML=h;
+}
 function drawGaps(rows,scope,tT){
+  $('gapsTitle').textContent='Where the gaps are';
   const g = rows.filter(r=>r.gap>0).sort((a,b)=>b.gap-a.gap).slice(0,8);
   const ps = scope==='ALL'?PL:[scope];
   // plant-level critical counts
@@ -303,6 +318,7 @@ function detail(r,tC,tW){
   return h;
 }
 
+$('gaps').addEventListener('click',e=>{ const tr=e.target.closest('tr.main'); if(tr) location.hash='item='+encodeURIComponent(tr.dataset.c); });
 $('tbl').addEventListener('click',e=>{
   const th=e.target.closest('th'); if(th){ const k=th.dataset.k; if(state.sort===k) state.dir*=-1; else {state.sort=k; state.dir=(k==='name'||k==='code'||k==='st')?1:(k==='daysW'||k==='daysP'||k==='months'||k==='runout')?1:-1;} render(); return; }
   const tr=e.target.closest('tr.main'); if(tr){ location.hash='item='+encodeURIComponent(tr.dataset.c); }
