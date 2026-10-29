@@ -24,15 +24,30 @@ def code(x):
     try: return str(int(float(x)))
     except: return str(x)
 
-# Warehouse of the POs raised from each PBA (RM_WH_Mgt > OPEN_PO, comment 'Origin: Blanket Agreement N.'),
-# used when an OPEN PBA + PO line has no warehouse. PO_WH[(pba, item)] = {warehouse: (open qty, unit price)}
+# Warehouse for pending lines whose Warehouse is blank in OPEN PBA + PO. Looked up in the same workbook, tab PBA Monitoring:
+# the agreement's own Warehouse if filled, else the warehouse (PO_Whs) of its POs that are still undelivered.
+# If that tab has nothing, the OPEN_PO tab of RM_WH_Mgt is used (comment 'Origin: Blanket Agreement N.').
+# PO_WH[(pba, item)] = {warehouse: (weight, unit price)}
 import re as _re2
-PO_WH={}
+_own={}; _via_po={}
+for _r in pb['PBA Monitoring'].iter_rows(min_row=6,values_only=True):
+    if not isinstance(_r[0],(int,float)) or _r[6] is None: continue
+    _k=(int(_r[0]),code(_r[6]))
+    if _r[3] and plant_of_wh(_r[3]):
+        _own[_k]={_r[3]:[1.0,_r[12]]}
+    elif isinstance(_r[19],(int,float)) and _r[19]>0 and plant_of_wh(_r[18]):
+        _via_po.setdefault(_k,{}).setdefault(_r[18],[0.0,_r[12]])[0]+=_r[19]
+_via_opo={}
 for _r in wh['OPEN_PO'].iter_rows(min_row=4,values_only=True):
     _m=_re2.search(r'Blanket Agreement (\d+)',str(_r[12] or ''))
     if _m and _r[5] is not None and isinstance(_r[9],(int,float)) and _r[9]>0 and plant_of_wh(_r[7]):
-        _a=PO_WH.setdefault((int(_m.group(1)),code(_r[5])),{}).setdefault(_r[7],[0.0,_r[10]]); _a[0]+=_r[9]
-PO_WH={k:{w:(v[0],v[1]) for w,v in d.items()} for k,d in PO_WH.items()}
+        _via_opo.setdefault((int(_m.group(1)),code(_r[5])),{}).setdefault(_r[7],[0.0,_r[10]])[0]+=_r[9]
+PO_WH={}
+for _src in (_via_opo,_via_po,_own):          # later sources override earlier ones
+    for _k,_d in _src.items(): PO_WH[_k]={w:(v[0],v[1]) for w,v in _d.items()}
+for _k,_d in PO_WH.items():                    # a missing price falls back to the PO's unit price in OPEN_PO
+    _pr=next((v[1] for v in _via_opo.get(_k,{}).values() if v[1]),None)
+    PO_WH[_k]={w:(q,pr or _pr) for w,(q,pr) in _d.items()}
 UNASSIGNED=[]
 # Average cost from the Inventory Audit copy (Avg Cost column), weighted by that sheet's Ending Balance, per warehouse.
 # Stock quantities stay as in RM_WH_Mgt; the audit's ending balance is only used as the weight.

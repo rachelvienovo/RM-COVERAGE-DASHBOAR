@@ -110,16 +110,37 @@ function build_() {
     }
   });
 
-  // Warehouse of the POs raised from each PBA (OPEN_PO comment 'Origin: Blanket Agreement N.'), used when an
-  // OPEN PBA + PO line has no warehouse. poWh[pba|item][warehouse] = [open qty, unit price]
-  var poWh = {};
+  // Warehouse for pending lines whose Warehouse is blank in OPEN PBA + PO. From the same workbook, tab PBA Monitoring:
+  // the agreement's own Warehouse if filled, else the warehouse (PO_Whs) of its POs that are still undelivered.
+  // If that tab has nothing, RM_WH_Mgt > OPEN_PO is used (comment 'Origin: Blanket Agreement N.').
+  // poWh[pba|item][warehouse] = [weight, unit price]
+  var own = {}, viaPo = {}, viaOpo = {}, poWh = {};
+  values(pbaSs, 'PBA Monitoring').slice(5).forEach(function (r) {
+    if (typeof r[0] !== 'number' || r[6] === '') return;
+    var k = Math.round(r[0]) + '|' + code_(r[6]);
+    if (r[3] && plantOfWh_(r[3])) { own[k] = {}; own[k][r[3]] = [1, r[12]]; }
+    else if (typeof r[19] === 'number' && r[19] > 0 && plantOfWh_(r[18])) {
+      var d = viaPo[k] || (viaPo[k] = {}), a = d[r[18]] || (d[r[18]] = [0, r[12]]);
+      a[0] += r[19];
+    }
+  });
   values(wh, 'OPEN_PO').slice(3).forEach(function (r) {
     var m = /Blanket Agreement (\d+)/.exec(String(r[12] || ''));
     if (m && r[5] !== '' && typeof r[9] === 'number' && r[9] > 0 && plantOfWh_(r[7])) {
-      var k = m[1] + '|' + code_(r[5]), d = poWh[k] || (poWh[k] = {});
-      var a = d[r[7]] || (d[r[7]] = [0, r[10]]);
+      var k = m[1] + '|' + code_(r[5]), d = viaOpo[k] || (viaOpo[k] = {}), a = d[r[7]] || (d[r[7]] = [0, r[10]]);
       a[0] += r[9];
     }
+  });
+  [viaOpo, viaPo, own].forEach(function (src) {   // later sources override earlier ones
+    Object.keys(src).forEach(function (k) {
+      poWh[k] = {};
+      Object.keys(src[k]).forEach(function (w) { poWh[k][w] = [src[k][w][0], src[k][w][1]]; });
+    });
+  });
+  Object.keys(poWh).forEach(function (k) {         // a missing price falls back to the PO's unit price in OPEN_PO
+    var pr = 0;
+    if (viaOpo[k]) Object.keys(viaOpo[k]).forEach(function (w) { if (!pr && viaOpo[k][w][1]) pr = viaOpo[k][w][1]; });
+    Object.keys(poWh[k]).forEach(function (w) { if (!poWh[k][w][1]) poWh[k][w][1] = pr || 0; });
   });
 
   var minData = {};
