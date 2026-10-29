@@ -110,6 +110,18 @@ function build_() {
     }
   });
 
+  // Warehouse of the POs raised from each PBA (OPEN_PO comment 'Origin: Blanket Agreement N.'), used when an
+  // OPEN PBA + PO line has no warehouse. poWh[pba|item][warehouse] = [open qty, unit price]
+  var poWh = {};
+  values(wh, 'OPEN_PO').slice(3).forEach(function (r) {
+    var m = /Blanket Agreement (\d+)/.exec(String(r[12] || ''));
+    if (m && r[5] !== '' && typeof r[9] === 'number' && r[9] > 0 && plantOfWh_(r[7])) {
+      var k = m[1] + '|' + code_(r[5]), d = poWh[k] || (poWh[k] = {});
+      var a = d[r[7]] || (d[r[7]] = [0, r[10]]);
+      a[0] += r[9];
+    }
+  });
+
   var minData = {};
   Object.keys(MIN_SHEETS).forEach(function (n) { minData[n] = values(wh, n); });
 
@@ -156,14 +168,24 @@ function build_() {
       if (!r[1] || r[5] === '') return;
       var c = code_(r[5]);
       if (!items[c]) return;
-      var p = plantOfWh_(r[7]);
       var bal = Number(r[9]) || 0;
-      if (!p || bal <= 0) return;
-      var e = ends[Math.round(Number(r[1])) + '|' + c + '|' + r[7]];
-      items[c].pend[p] += bal;
-      items[c].pos.push({ pba: Math.round(Number(r[1])), vendor: r[4], wh: r[7], plant: p,
-        created: r[2] instanceof Date ? ymd_(r[2]) : String(r[2]), end: e ? ymd_(e) : null,
-        t: round3_(bal / div), price: r[11], expired: !!(e && e < asof) });
+      if (bal <= 0) return;
+      var pba = Math.round(Number(r[1])), e = ends[pba + '|' + c + '|' + r[7]];
+      var targets = [];
+      if (plantOfWh_(r[7])) targets.push([r[7], 1, r[11]]);
+      else if (poWh[pba + '|' + c]) {
+        var d = poWh[pba + '|' + c], tot = 0, w;
+        for (w in d) tot += d[w][0];
+        for (w in d) targets.push([w, d[w][0] / tot, d[w][1]]);
+      }
+      targets.forEach(function (t) {
+        var p = plantOfWh_(t[0]);
+        if (!p) return;
+        items[c].pend[p] += bal * t[1];
+        items[c].pos.push({ pba: pba, vendor: r[4], wh: t[0], plant: p,
+          created: r[2] instanceof Date ? ymd_(r[2]) : String(r[2]), end: e ? ymd_(e) : null,
+          t: round3_(bal * t[1] / div), price: t[2] || r[11], expired: !!(e && e < asof) });
+      });
     });
 
     var round = function (o) { var x = {}; PLANTS.forEach(function (p) { x[p] = round3_(o[p] / div); }); return x; };

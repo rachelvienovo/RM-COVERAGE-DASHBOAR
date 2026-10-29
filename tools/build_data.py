@@ -24,6 +24,16 @@ def code(x):
     try: return str(int(float(x)))
     except: return str(x)
 
+# Warehouse of the POs raised from each PBA (RM_WH_Mgt > OPEN_PO, comment 'Origin: Blanket Agreement N.'),
+# used when an OPEN PBA + PO line has no warehouse. PO_WH[(pba, item)] = {warehouse: (open qty, unit price)}
+import re as _re2
+PO_WH={}
+for _r in wh['OPEN_PO'].iter_rows(min_row=4,values_only=True):
+    _m=_re2.search(r'Blanket Agreement (\d+)',str(_r[12] or ''))
+    if _m and _r[5] is not None and isinstance(_r[9],(int,float)) and _r[9]>0 and plant_of_wh(_r[7]):
+        _a=PO_WH.setdefault((int(_m.group(1)),code(_r[5])),{}).setdefault(_r[7],[0.0,_r[10]]); _a[0]+=_r[9]
+PO_WH={k:{w:(v[0],v[1]) for w,v in d.items()} for k,d in PO_WH.items()}
+UNASSIGNED=[]
 # Average cost from the Inventory Audit copy (Avg Cost column), weighted by that sheet's Ending Balance, per warehouse.
 # Stock quantities stay as in RM_WH_Mgt; the audit's ending balance is only used as the weight.
 # COST[(class, item code)][warehouse] = [sum(balance x avg cost), sum(balance)]
@@ -82,14 +92,19 @@ def build(CLS,DIV):
         if not r[1] or r[5] is None: continue
         c=code(r[5])
         if c not in items: continue
-        p=plant_of_wh(r[7])
-        if not p: continue
         bal=r[9] or 0
         if bal<=0: continue
         e=end.get((int(r[1]),c,r[7]))
-        items[c]['pend'][p]+=bal
-        items[c]['pos'].append({'pba':int(r[1]),'vendor':r[4],'wh':r[7],'plant':p,'created':r[2].strftime('%Y-%m-%d'),
-            'end':e.strftime('%Y-%m-%d') if e else None,'t':round(bal/DIV,3),'price':r[11],'expired':bool(e and e<ASOF_DT)})
+        # one entry per warehouse: the line's own warehouse, or (when it is blank) the warehouse of the PO raised from this PBA
+        targets=[(r[7],1.0,r[11])] if plant_of_wh(r[7]) else [(w,q/sum(x[0] for x in PO_WH[(int(r[1]),c)].values()),pr) for w,(q,pr) in PO_WH[(int(r[1]),c)].items()] if (int(r[1]),c) in PO_WH else []
+        if not targets or not any(plant_of_wh(t[0]) for t in targets):
+            UNASSIGNED.append((CLS,c,int(r[1]),round(bal))); continue
+        for w,share,pr in targets:
+            p=plant_of_wh(w)
+            if not p: continue
+            items[c]['pend'][p]+=bal*share
+            items[c]['pos'].append({'pba':int(r[1]),'vendor':r[4],'wh':w,'plant':p,'created':r[2].strftime('%Y-%m-%d'),
+                'end':e.strftime('%Y-%m-%d') if e else None,'t':round(bal*share/DIV,3),'price':pr or r[11],'expired':bool(e and e<ASOF_DT)})
     out=[]
     for c,it in sorted(items.items(),key=lambda x:(0,int(x[0]),'') if x[0].isdigit() else (1,0,x[0])):
         t=lambda d:{k:round(v/DIV,3) for k,v in d.items()}
@@ -112,4 +127,5 @@ res={'asof':ASOF.strftime('%Y-%m-%d'),'invSync':ASOF.strftime('%b %d'),'invSyncF
  'MICRO':{'label':'Micro','unit':'kg','dec':0,'stockDec':0,'div':1,'items':build('MICRO',1)},
  'FEEDTAGS':{'label':'Feedtags','unit':'pcs','dec':0,'stockDec':0,'div':1,'items':build('FEEDTAGS',1)}}}
 json.dump(res,open(S+'data.json','w'),separators=(',',':'))
+if UNASSIGNED: print('pending lines with no warehouse found (not counted):',UNASSIGNED)
 for k,g in res['groups'].items(): print(k,len(g['items']),sum(sum(i['stock'].values()) for i in g['items']),sum(sum(i['pend'].values()) for i in g['items']))
