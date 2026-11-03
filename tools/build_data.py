@@ -136,7 +136,7 @@ inv_sync=wh['INV']['A2'].value; pba_sync=pb['OPEN PBA + PO']['A3'].value
 ASOF=_d(inv_sync) or datetime.datetime.today()
 ASOF_DT=ASOF
 print('inv',inv_sync,'| pba',pba_sync)
-res={'asof':ASOF.strftime('%Y-%m-%d'),'invSync':ASOF.strftime('%b %d'),'invSyncFull':str(inv_sync),'costSyncFull':(str(au['A2'].value)+' | as of '+au['D2'].value.strftime('%m/%d/%Y')) if AGE_LAYOUT and hasattr(au['D2'].value,'strftime') else str(au['A2'].value),'pbaSyncFull':str(pba_sync),'pbaSync':(_d(pba_sync) or ASOF).strftime('%b %d'),'plants':PL,'groups':{
+res={'asof':ASOF.strftime('%Y-%m-%d'),'invSync':ASOF.strftime('%b %d'),'invSyncFull':str(inv_sync),'costSyncFull':(str(au['A2'].value)+' | as of '+au['D2'].value.strftime('%m/%d/%Y')) if AGE_LAYOUT and hasattr(au['D2'].value,'strftime') else str(au['A2'].value),'pbaSyncFull':str(pba_sync),'pbaSync':_d(pba_sync).strftime('%b %d') if _d(pba_sync) else 'FAILED','plants':PL,'groups':{
  'MACRO':{'label':'Macro','unit':'t','dec':0,'stockDec':1,'div':1000,'items':build('MACRO',1000)},
  'PACKAGING':{'label':'Packaging','unit':'pcs','dec':0,'stockDec':0,'div':1,'items':build('PACKAGING',1)},
  'MICRO':{'label':'Micro','unit':'kg','dec':0,'stockDec':0,'div':1,'items':build('MICRO',1)},

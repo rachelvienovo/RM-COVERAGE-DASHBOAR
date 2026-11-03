@@ -173,7 +173,7 @@ function itemCostOf(it){ const cp=PL.filter(p=>it.cost&&it.cost[p]>0); if(!cp.le
   const w=cp.reduce((a,p)=>a+(it.stock[p]||0),0);
   return w>0?cp.reduce((a,p)=>a+it.cost[p]*(it.stock[p]||0),0)/w:cp.reduce((a,p)=>a+it.cost[p],0)/cp.length; }
 const costOf=(it,p,ic)=>(it.cost&&it.cost[p]>0)?it.cost[p]:ic;
-function setHeader(){ $('asof').textContent = 'As of '+fmtDate(ASOF)+' · stock & consumption: RM_WH_Mgt (synced '+DATA.invSync+') · pending: OPEN PBA + PO (synced '+DATA.pbaSync+')'+(DATA.costSyncFull?' · cost: Inventory Ageing (as of '+syncDay(DATA.costSyncFull)+')':''); }
+function setHeader(){ $('asof').textContent = 'As of '+fmtDate(ASOF)+' · stock & consumption: RM_WH_Mgt (synced '+DATA.invSync+') · pending: OPEN PBA + PO ('+(DATA.pbaSync==='FAILED'?'last sync FAILED, data may be stale':'synced '+DATA.pbaSync)+')'+(DATA.costSyncFull?' · cost: Inventory Ageing (as of '+syncDay(DATA.costSyncFull)+')':''); }
 setHeader();
 
 const state = {sort:'daysW', dir:1, status:'all', open:null, group:Object.keys(GROUPS)[0]};
