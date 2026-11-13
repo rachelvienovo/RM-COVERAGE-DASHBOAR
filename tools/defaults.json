@@ -1,5 +1,6 @@
 {
   "MACRO": { "crit": 12, "watch": 30, "target": 2 },
   "PACKAGING": { "crit": 45, "watch": 75, "target": 5 },
-  "MICRO": { "crit": 30, "watch": 45, "target": 3 }
+  "MICRO": { "crit": 30, "watch": 45, "target": 3 },
+  "FEEDTAGS": { "crit": 30, "watch": 45, "target": 3 }
 }
