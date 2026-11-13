@@ -234,8 +234,8 @@ function render(){
     ['',(g.label==='Macro'?'Materials':g.label+' items')+' in view',fmt(rows.length),fmt(active.length)+' with consumption'],
     ['crit','Critical',fmt(counts.crit),'stock cover < '+tC+' days'],
     ['warn','Watch',fmt(counts.warn),tC+'–'+tW+' days'],
-    ['','Current stock',fmt(tot('stock'))+' '+g.unit,'warehouse on-hand'],
     [avgDio==null?'':avgDio<tC?'crit':avgDio<tW?'warn':'ok','Average DIO',avgDio!=null?fmt(avgDio,1)+' d':'–',avgDioP!=null?fmt(avgDioP,1)+' d incl. pending':'no consumption'],
+    ['','Current stock',fmt(tot('stock'))+' '+g.unit,'warehouse on-hand'],
     ['','Stock value',pesoM(tot('value')),'stock × avg cost'],
     ['','Pending PBA/PO',fmt(tot('pend'))+' '+g.unit,'unreceived balance'],
     ['','Shortfall to '+tT+' mo',fmt(tot('gap'))+' '+g.unit,fmt(needing.length)+' materials short']
