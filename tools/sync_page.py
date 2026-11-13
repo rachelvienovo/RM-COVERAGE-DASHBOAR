@@ -3,6 +3,8 @@ W=sys.argv[1]; OUT=sys.argv[2]; TAKEN=sys.argv[3]   # work dir, output dir (repo
 HIST=OUT+'history.json'
 nav_pages=[('index.html','Macro coverage'),('packaging.html','Packaging coverage'),('micro.html','Micro coverage'),('feedtags.html','Feedtags coverage')]
 
+_df=json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),'defaults.json')))
+critdays=lambda g:_df.get(g,{}).get('crit',30)   # the critical threshold each dashboard opens with
 def snap(d,taken,inv,pba,cost=None):
     out={'taken':taken,'inv':inv,'pba':pba,'groups':{},'detail':{}}
     if cost: out['cost']=cost
@@ -13,7 +15,7 @@ def snap(d,taken,inv,pba,cost=None):
             det[i['code']]=[i['name'],round(s,3),round(p,3),round(c,3)]
             if round(c)>0:
                 wc+=1
-                if s/(c/30)<30: crit+=1
+                if s/(c/30)<critdays(g): crit+=1
         out['groups'][g]={'label':v['label'],'unit':v['unit'],'items':len(its),'withCons':wc,'critical':crit,
             'stock':round(sum(x[1] for x in det.values()),3),'pend':round(sum(x[2] for x in det.values()),3),'cons':round(sum(x[3] for x in det.values()),3)}
         out['detail'][g]=det
@@ -34,7 +36,7 @@ for h in hist:   # recompute with the current rule: under half a unit of consump
     for g,v in h['groups'].items():
         det=h['detail'][g].values()
         v['withCons']=sum(1 for x in det if round(x[3])>0)
-        v['critical']=sum(1 for x in det if round(x[3])>0 and x[1]/(x[3]/30)<30)
+        v['critical']=sum(1 for x in det if round(x[3])>0 and x[1]/(x[3]/30)<critdays(g))
 json.dump(hist,open(HIST,'w'),separators=(',',':'))
 
 HTML='''<!DOCTYPE html>

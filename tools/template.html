@@ -533,6 +533,8 @@ function route(){
 }
 addEventListener('hashchange',route);
 ['tCrit','tWarn','tTarget','exExp','timing'].forEach(id=>$(id).addEventListener('input',()=>{ if(!$('itemView').hidden) route(); }));
+// per-dashboard defaults for the thresholds (tools/defaults.json): critical days, watch days, target months
+(function(){ const d=DATA.defaults||{}; if(d.crit) $('tCrit').value=d.crit; if(d.watch) $('tWarn').value=d.watch; if(d.target) $('tTarget').value=d.target; })();
 route();
 </script>
 </body>

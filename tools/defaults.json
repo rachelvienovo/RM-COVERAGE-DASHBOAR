@@ -1,0 +1,4 @@
+{
+  "MACRO": { "crit": 30, "watch": 45, "target": 3 },
+  "PACKAGING": { "crit": 45, "watch": 75, "target": 5 }
+}
