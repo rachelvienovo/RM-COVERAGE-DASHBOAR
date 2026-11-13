@@ -72,6 +72,9 @@ def cost_for(cls,c):
     out.update({p:v[0]/v[1] for p,v in AGEC.get((cls,c),{}).items()})
     return {p:round(x,4) for p,x in out.items()}
 ASOF_DT=datetime.datetime(2026,10,20)
+# Items left out of a dashboard on purpose (tools/exclude.json): class -> item codes.
+import json as _json, os as _os
+EXCLUDE=_json.load(open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),'exclude.json')))
 def build(CLS,DIV):
     global items
     items={}
@@ -126,6 +129,7 @@ def build(CLS,DIV):
         row={'code':c,'name':it['name'],'cons':t(it['cons']),'stock':t(it['stock']),'pend':t(it['pend']),'stockWh':{k:round(v/DIV,3) for k,v in it['wh'].items() if v},
             'cost':cost_for(CLS,c),'pos':sorted(it['pos'],key=lambda x:-x['t'])}
         row['code']=c
+        if c in EXCLUDE.get(CLS,[]): continue
         if sum(row['cons'].values())+sum(row['stock'].values())+sum(row['pend'].values())>0: out.append(row)
     return out
 

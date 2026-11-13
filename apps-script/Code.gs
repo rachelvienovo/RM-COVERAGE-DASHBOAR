@@ -17,6 +17,8 @@ var PLANTS = ['AC', 'PFMIS', 'BUKID', 'SOUTH', 'HOREB', 'ARGAO'];
 // plant -> its MIN_ sheet (consumption = AV W Fcasts consump x WEEKS_PER_MONTH)
 var MIN_SHEETS = { MIN_BULACAN: 'AC', MIN_ISA: 'PFMIS', MIN_HOREB: 'HOREB', MIN_ARGAO: 'ARGAO', MIN_BUKID: 'BUKID', MIN_SOUTH: 'SOUTH', MIN_CCPC: 'BUKID' };
 var WEEKS_PER_MONTH = 4;
+// Items left out of a dashboard on purpose (same list as tools/exclude.json): class -> item codes
+var EXCLUDE = { MICRO: ['60400', '60600', '60610', '60700'] };
 // class, label, unit, divisor from sheet units, decimals, stock decimals
 var GROUPS = [
   ['MACRO', 'Macro', 't', 1000, 0, 1],
@@ -218,6 +220,7 @@ function build_() {
       return { code: c, name: it.name, cons: round(it.cons), stock: round(it.stock), pend: round(it.pend), stockWh: wh, cost: cost,
         pos: it.pos.sort(function (a, b) { return b.t - a.t; }) };
     }).filter(function (it) {
+      if ((EXCLUDE[cls] || []).indexOf(it.code) >= 0) return false;
       var s = 0; PLANTS.forEach(function (p) { s += it.cons[p] + it.stock[p] + it.pend[p]; });
       return s > 0;
     }).sort(function (a, b) {

@@ -23,6 +23,13 @@ hist=json.load(open(HIST)) if os.path.exists(HIST) else []
 cur=json.load(open(W+'data.json'))
 new=snap(cur,TAKEN,cur['invSyncFull'],cur['pbaSyncFull'],cur.get('costSyncFull'))
 hist=[h for h in hist if h['taken']!=TAKEN]+[new]
+_ex=json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),'exclude.json')))
+for h in hist:   # drop items that are excluded from a dashboard, in every snapshot, so comparisons stay consistent
+    for g,codes in _ex.items():
+        if g in h['detail']:
+            for c in codes: h['detail'][g].pop(c,None)
+            _d=h['detail'][g].values(); _v=h['groups'][g]
+            _v['items']=len(h['detail'][g]); _v['stock']=round(sum(x[1] for x in _d),3); _v['pend']=round(sum(x[2] for x in _d),3); _v['cons']=round(sum(x[3] for x in _d),3)
 for h in hist:   # recompute with the current rule: under half a unit of consumption a month = no usage
     for g,v in h['groups'].items():
         det=h['detail'][g].values()
