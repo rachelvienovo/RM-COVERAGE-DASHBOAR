@@ -227,11 +227,15 @@ function render(){
   const active = rows.filter(r=>r.st!=='na');
   const tot = k => rows.reduce((a,r)=>a+r[k],0);
   const needing = rows.filter(r=>r.gap>0);
+  // Average DIO = stock / daily consumption over the items that have consumption (items with no usage would inflate it)
+  const aS=active.reduce((a,r)=>a+r.stock,0), aC=active.reduce((a,r)=>a+r.cons,0), aP=active.reduce((a,r)=>a+r.pend,0);
+  const avgDio=aC>0?aS/(aC/30):null, avgDioP=aC>0?(aS+aP)/(aC/30):null;
   $('kpis').innerHTML = [
-    ['',(g.label==='Macro'?'Materials':'Packaging items')+' in view',fmt(rows.length),fmt(active.length)+' with consumption'],
+    ['',(g.label==='Macro'?'Materials':g.label+' items')+' in view',fmt(rows.length),fmt(active.length)+' with consumption'],
     ['crit','Critical',fmt(counts.crit),'stock cover < '+tC+' days'],
     ['warn','Watch',fmt(counts.warn),tC+'–'+tW+' days'],
     ['','Current stock',fmt(tot('stock'))+' '+g.unit,'warehouse on-hand'],
+    [avgDio==null?'':avgDio<tC?'crit':avgDio<tW?'warn':'ok','Average DIO',avgDio!=null?fmt(avgDio,1)+' d':'–',avgDioP!=null?fmt(avgDioP,1)+' d incl. pending':'no consumption'],
     ['','Stock value',pesoM(tot('value')),'stock × avg cost'],
     ['','Pending PBA/PO',fmt(tot('pend'))+' '+g.unit,'unreceived balance'],
     ['','Shortfall to '+tT+' mo',fmt(tot('gap'))+' '+g.unit,fmt(needing.length)+' materials short']
